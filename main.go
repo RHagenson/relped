@@ -87,7 +87,7 @@ func main() {
 	}
 
 	// Build graph
-	g := new(Graph)
+	g := NewGraph()
 	// Add known vertexes/nodes
 	for i := range records {
 		g.AddNode(records[i][0])
@@ -106,8 +106,15 @@ func main() {
 
 // Graph has named nodes/vertexes
 type Graph struct {
-	g simple.WeightedUndirectedGraph
+	g *simple.WeightedUndirectedGraph
 	m map[string]graph.Node
+}
+
+func NewGraph() *Graph {
+	return &Graph{
+		g: simple.NewWeightedUndirectedGraph(0, 0),
+		m: make(map[string]graph.Node),
+	}
 }
 
 func (self *Graph) AddNode(name string) {
