@@ -102,6 +102,11 @@ func main() {
 			g.AddUnknownPath(n1, n2, dist, vals[i])
 		}
 	}
+
+	// Remove unrelated individuals
+	if *opRmUnrel {
+		g.RmDisconnected()
+	}
 }
 
 // Graph has named nodes/vertexes
@@ -114,6 +119,31 @@ func NewGraph() *Graph {
 	return &Graph{
 		g: simple.NewWeightedUndirectedGraph(0, 0),
 		m: make(map[string]graph.Node),
+	}
+}
+
+func (self *Graph) Nodes() graph.Nodes {
+	return self.g.Nodes()
+}
+
+func (self *Graph) RmDisconnected() {
+	for name := range self.m {
+		nodes := self.From(name)
+		if nodes.Len() == 0 {
+			self.RemoveNode(name)
+		}
+	}
+}
+
+func (self *Graph) From(name string) graph.Nodes {
+	if node, ok := self.m[name]; ok {
+		self.g.From(node.ID())
+	}
+}
+
+func (self *Graph) RemoveNode(name string) {
+	if node, ok := self.m[name]; ok {
+		self.g.RemoveNode(node.ID())
 	}
 }
 
@@ -150,6 +180,8 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 		log.Fatalf("Weights along path should be one less than names along path.")
 	}
 	for i := 1; i <= len(names); i++ {
+		self.AddNode(names[i-1])
+		self.AddNode(names[i])
 		self.NewWeightedEdge(names[i-1], names[i], weights[i-1])
 	}
 }
