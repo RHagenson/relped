@@ -44,3 +44,7 @@ node [fontname="Sans", shape="record"]
 # Contributing
 
 If you find a bug, have a feature request, or otherwise would like to contact the author concerning issues with using `relped` please open an issue on the GitHub repo (<https://github.com/RHagenson/relped/issues>)
+
+# License
+
+This work is licensed under the the MIT License, see full terms of use in [LICENSE](./LICENSE) file.
