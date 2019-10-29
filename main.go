@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 
 	"github.com/spf13/pflag"
+	"gonum.org/v1/gonum/floats"
 )
 
 // Required flags
@@ -16,8 +19,8 @@ var (
 
 // General use flags
 var (
-	opCorrect = pflag.Bool("correct", false, "Correct Relatedness to be [0,1]-bounded")
-	opHelp    = pflag.Bool("help", false, "Print help and exit")
+	opNormalize = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
+	opHelp      = pflag.Bool("help", false, "Print help and exit")
 )
 
 func setup() {
@@ -52,10 +55,50 @@ func main() {
 		Errorf("Problem parsing line: %s", err)
 	}
 	fmt.Print(records)
+	if *opNormalize {
+		vals := normalize(records)
+	}
+}
+
+// normalize adjusts the distribution of values to be bounded in [0,1]
+func normalize(rs [][]string) []float64 {
+	vals := make([]float64, len(rs))
+	for rowI, rowV := range rs {
+		if val, err := strconv.ParseFloat(rowV[2], 64); err == nil {
+			vals[rowI] = val
+		} else {
+			log.Printf("Could not read entry as float: %s", err)
+		}
+	}
+
+	// Normalize to [0,1] only if there exist
+	// values < 0 or > 1
+	min := floats.Min(append(vals, 0, 1))
+	max := floats.Max(append(vals, 0, 1))
+	for i, val := range vals {
+		vals[i] = (val - min) / (max - min)
+	}
+	return vals
+
 }
 
 // Errorf standardizes notifying user of failure and failing
 func Errorf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 	os.Exit(2)
+}
+
+// MinMax finds the minimum and maximum values in one pass
+func MinMax(array []int) (int, int) {
+	var max int = array[0]
+	var min int = array[0]
+	for _, value := range array {
+		if max < value {
+			max = value
+		}
+		if min > value {
+			min = value
+		}
+	}
+	return min, max
 }
