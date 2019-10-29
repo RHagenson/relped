@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"gonum.org/v1/gonum/floats"
@@ -89,34 +91,29 @@ func main() {
 	g := new(Graph)
 	// Add known vertexes/nodes
 	for i := range records {
-		indv1 := records[i][1]
-		indv2 := records[i][2]
-		g.AddNode(indv1)
-		g.AddNode(indv2)
+		g.AddNode(records[i][0])
+		g.AddNode(records[i][1])
 	}
 	// Add edges based on relational distance
 	for i := range records {
 		dist := relToLevel(vals[i])
 		n1 := records[i][0]
 		n2 := records[i][1]
-		weight := vals[i] / float64(dist)
-		switch dist {
-		case 0:
-			continue
-		case 1:
-			g.AddEdge(n1, n2, weight, nil)
-			g.AddEdge(n2, n1, weight, nil)
-		case 2:
-			g.AddVertex(unknownID, nil)
-			// "Forward"
-			g.AddEdge(n1, unknownID, weight, nil)
-			g.AddEdge(unknownID, n2, weight, nil)
-			// "Reverse"
-			g.AddEdge(n2, unknownID, weight, nil)
-			g.AddEdge(unknownID, n1, weight, nil)
-			unknownID++
+		if dist != 0 {
+			g.AddUnknownPath(n1, n2, dist, vals[i])
 		}
 	}
+}
+
+func RandString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz" +
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }
 
 // Graph has named nodes/vertexes
@@ -139,6 +136,10 @@ func (self *Graph) Edge(n1, n2 string) graph.Edge {
 	return self.g.Edge(uid, vid)
 }
 
+func (self *Graph) Node(name string) graph.Node {
+	return self.g.Node(self.m[name].ID())
+}
+
 func (self *Graph) Edges() graph.Edges {
 	return self.g.Edges()
 }
@@ -156,6 +157,23 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 	for i := 1; i <= len(names); i++ {
 		self.NewWeightedEdge(names[i-1], names[i], weights[i-1])
 	}
+}
+
+// AddUnknownPath adds a path from n1 through n "unknowns" to n2 distributing the
+// weight accordingly
+func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
+	incWeight := weight / float64(n)
+	unknowns := make([]string, n)
+	for i := 0; i < len(unknowns); i++ {
+		unknowns[i] = RandString(10 * int(n))
+	}
+	path := append([]string{n1}, unknowns...)
+	path = append(path, n2)
+	weights := make([]float64, len(path)-1)
+	for i := range weights {
+		weights[i] = incWeight
+	}
+	self.AddPath(path, weights)
 }
 
 // normalize adjusts the distribution of values to be bounded in [0,1]
