@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
 	"os"
 	"strconv"
-	"time"
 
+	"github.com/rs/xid"
 	"github.com/spf13/pflag"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
@@ -105,17 +104,6 @@ func main() {
 	}
 }
 
-func RandString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz" +
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
 // Graph has named nodes/vertexes
 type Graph struct {
 	g simple.WeightedUndirectedGraph
@@ -165,7 +153,7 @@ func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 	incWeight := weight / float64(n)
 	unknowns := make([]string, n)
 	for i := 0; i < len(unknowns); i++ {
-		unknowns[i] = RandString(10 * int(n))
+		unknowns[i] = xid.New().String()
 	}
 	path := append([]string{n1}, unknowns...)
 	path = append(path, n2)
