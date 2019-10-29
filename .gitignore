@@ -1,3 +1,6 @@
+# Ignore data prior to publication
+example-data/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
