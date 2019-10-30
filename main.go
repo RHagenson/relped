@@ -80,7 +80,7 @@ func main() {
 	if *opNormalize { // Normalize
 		vals = normalize(vals)
 	} else {
-		for i, v := range vals { // Replace negatives with
+		for i, v := range vals { // Replace negatives as unrelated (i.e., 0)
 			if v < 0 {
 				vals[i] = 0
 			}
@@ -89,24 +89,15 @@ func main() {
 
 	// Build graph
 	g := NewGraph()
-	// Add known vertexes/nodes
+	// Add paths from node to node based on relational distance
 	for i := range records {
-		g.AddNode(records[i][0])
-		g.AddNode(records[i][1])
-	}
-	// Add edges based on relational distance
-	for i := range records {
-		dist := relToLevel(vals[i])
-		if dist <= *opMaxDist {
-			n1 := records[i][0]
-			n2 := records[i][1]
-			if dist != 0 {
-				g.AddUnknownPath(n1, n2, dist, vals[i])
+		if dist, rel := relToLevel(vals[i]); rel { // Related at some distance
+			if dist <= *opMaxDist {
+				g.AddUnknownPath(records[i][0], records[i][1], dist, vals[i])
 			}
 		}
 	}
-
-	// Remove unrelated individuals
+	// Remove disconnected individuals
 	if *opRmUnrel {
 		g.RmDisconnected()
 	}
@@ -193,6 +184,8 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 // weight accordingly
 func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 	incWeight := weight / float64(n)
+	// TODO: Allocate array of n+2 for path filling in the inner portion
+	// with unknowns as below, but not requiring two append statements
 	unknowns := make([]string, n)
 	for i := 0; i < len(unknowns); i++ {
 		unknowns[i] = xid.New().String()
@@ -210,6 +203,7 @@ func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 func normalize(vals []float64) []float64 {
 	// Adding {0,1} causes normalization to [0,1]
 	// only if there exist values < 0 or > 1
+	// I.e., if the values are already in the range (0,1), do nothing.
 	min := floats.Min(append(vals, 0, 1))
 	max := floats.Max(append(vals, 0, 1))
 	for i, val := range vals {
@@ -227,13 +221,13 @@ func Errorf(format string, a ...interface{}) {
 // relToLevel computes the relational distance given the relatedness score
 //
 // Examples:
-//     relToLevel(0.5)   --> 1
-//     relToLevel(0.25)  --> 2
-//     relToLevel(0.125) --> 3
-//     relToLevel(<=0)   --> MaxUint64
-func relToLevel(x float64) uint {
+//     relToLevel(0.5)   --> (1, true)
+//     relToLevel(0.25)  --> (2, true)
+//     relToLevel(0.125) --> (3, true)
+//     relToLevel(<=0)   --> (0, false) // Only "unrelated" case
+func relToLevel(x float64) (uint, bool) {
 	if x <= 0 {
-		return math.MaxUint64
+		return 0, false
 	}
-	return uint(math.Round(math.Log(1/x) / math.Log(2)))
+	return uint(math.Round(math.Log(1/x) / math.Log(2))), true
 }
