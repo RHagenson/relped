@@ -18,8 +18,9 @@ import (
 
 // Required flags
 var (
-	fIn  = pflag.String("input", "", "Input file (required)")
-	fOut = pflag.String("output", "", "Output file (required)")
+	fIn       = pflag.String("input", "", "Input file (optional)")
+	fOut      = pflag.String("output", "", "Output file (required)")
+	fMLRelate = pflag.String("ml-relate", "", "Input ML-Relate file (optional)")
 )
 
 // General use flags
@@ -40,9 +41,13 @@ func setup() {
 
 	// Failure states
 	switch {
-	case *fIn == "" || *fOut == "":
+	case *fOut == "":
 		pflag.Usage()
-		Errorf("Must provide both an input and output name.\n")
+		Errorf("Must provide both an output name.\n")
+		os.Exit(1)
+	case *fIn == "" && *fMLRelate == "":
+		pflag.Usage()
+		Errorf("One of --input or --ml-relate is required.\n")
 		os.Exit(1)
 	}
 }
@@ -52,94 +57,99 @@ func main() {
 	setup()
 
 	// Read in CSV input
-	in, err := os.Open(*fIn)
-	defer in.Close()
-	if err != nil {
-		Errorf("Could not read input file: %s\n", err)
-	}
-	inCsv := csv.NewReader(in)
-	inCsv.FieldsPerRecord = 3 // Simple three column format: Indv1, Indv2, Relatedness
-	records, err := inCsv.ReadAll()
-	if err != nil {
-		Errorf("Problem parsing line: %s\n", err)
-	}
-
-	// Remove header
-	records = records[1:]
-
-	// Extract relatedness values
-	vals := make([]float64, len(records))
-	for rowI, rowV := range records {
-		if val, err := strconv.ParseFloat(rowV[2], 64); err == nil {
-			vals[rowI] = val
-		} else {
-			log.Fatalf("Could not read entry as float: %s\n", err)
+	switch {
+	case *fIn != "":
+		in, err := os.Open(*fIn)
+		defer in.Close()
+		if err != nil {
+			Errorf("Could not read input file: %s\n", err)
 		}
-	}
+		inCsv := csv.NewReader(in)
+		inCsv.FieldsPerRecord = 3 // Simple three column format: Indv1, Indv2, Relatedness
+		records, err := inCsv.ReadAll()
+		if err != nil {
+			Errorf("Problem parsing line: %s\n", err)
+		}
 
-	// Optionally normalize values
-	if *opNormalize { // Normalize
-		vals = normalize(vals)
-	} else {
-		for i, v := range vals { // Replace negatives as unrelated (i.e., 0)
-			if v < 0 {
-				vals[i] = 0
+		// Remove header
+		records = records[1:]
+
+		// Extract relatedness values
+		vals := make([]float64, len(records))
+		for rowI, rowV := range records {
+			if val, err := strconv.ParseFloat(rowV[2], 64); err == nil {
+				vals[rowI] = val
+			} else {
+				log.Fatalf("Could not read entry as float: %s\n", err)
 			}
 		}
-	}
 
-	// Build graph
-	g := NewGraph()
-	// Add paths from node to node based on relational distance
-	for i := range records {
-		if dist, rel := relToLevel(vals[i]); rel { // Related at some distance
-			if dist <= *opMaxDist {
-				indv1 := records[i][0]
-				indv2 := records[i][1]
-				if indv1 != indv2 {
-					g.AddUnknownPath(indv1, indv2, dist, vals[i])
+		// Optionally normalize values
+		if *opNormalize { // Normalize
+			vals = normalize(vals)
+		} else {
+			for i, v := range vals { // Replace negatives as unrelated (i.e., 0)
+				if v < 0 {
+					vals[i] = 0
 				}
 			}
 		}
-	}
-	// Remove disconnected individuals
-	if *opRmUnrel {
-		g.RmDisconnected()
-	}
-	// TODO: Prune edges based on shortest/cheapest path between
-	// two known individuals
-	// Not implemented
 
-	// Write the outout
-	gOut := gographviz.NewGraph()
-	gOut.SetName("pedigree")
-	gOut.SetDir(false)
-	graphAttrs := map[string]string{
-		"rankdir": "TB",
-		"splines": "ortho",
-	}
-	for attr, val := range graphAttrs {
-		gOut.AddAttr("pedigree", attr, val)
-	}
-	nodeAttrs := map[string]string{
-		"fontname": "Sans",
-		"shape":    "record",
-	}
-	it := g.WeightedEdges()
-	for {
-		if ok := it.Next(); ok {
-			e := it.WeightedEdge()
-			node1 := g.NameFromID(e.From().ID())
-			node2 := g.NameFromID(e.To().ID())
-			gOut.AddNode("pedigree", node1, nodeAttrs)
-			gOut.AddNode("pedigree", node2, nodeAttrs)
-			gOut.AddEdge(node1, node2, false, nil)
-		} else {
-			break
+		// Build graph
+		g := NewGraph()
+		// Add paths from node to node based on relational distance
+		for i := range records {
+			if dist, rel := relToLevel(vals[i]); rel { // Related at some distance
+				if dist <= *opMaxDist {
+					indv1 := records[i][0]
+					indv2 := records[i][1]
+					if indv1 != indv2 {
+						g.AddUnknownPath(indv1, indv2, dist, vals[i])
+					}
+				}
+			}
 		}
-	}
-	if out, err := os.Create(*fOut); err == nil {
-		out.WriteString(gOut.String())
+		// Remove disconnected individuals
+		if *opRmUnrel {
+			g.RmDisconnected()
+		}
+		// TODO: Prune edges based on shortest/cheapest path between
+		// two known individuals
+		// Not implemented
+
+		// Write the outout
+		gOut := gographviz.NewGraph()
+		gOut.SetName("pedigree")
+		gOut.SetDir(false)
+		graphAttrs := map[string]string{
+			"rankdir": "TB",
+			"splines": "ortho",
+		}
+		for attr, val := range graphAttrs {
+			gOut.AddAttr("pedigree", attr, val)
+		}
+		nodeAttrs := map[string]string{
+			"fontname": "Sans",
+			"shape":    "record",
+		}
+		it := g.WeightedEdges()
+		for {
+			if ok := it.Next(); ok {
+				e := it.WeightedEdge()
+				node1 := g.NameFromID(e.From().ID())
+				node2 := g.NameFromID(e.To().ID())
+				gOut.AddNode("pedigree", node1, nodeAttrs)
+				gOut.AddNode("pedigree", node2, nodeAttrs)
+				gOut.AddEdge(node1, node2, false, nil)
+			} else {
+				break
+			}
+		}
+		if out, err := os.Create(*fOut); err == nil {
+			out.WriteString(gOut.String())
+		}
+	case *fMLRelate != "":
+		Errorf("ML-Relate input not yet implemented.\n")
 	}
 	return
 }
