@@ -26,6 +26,7 @@ var (
 	opNormalize = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
 	opHelp      = pflag.Bool("help", false, "Print help and exit")
 	opRmUnrel   = pflag.Bool("rm-unrelated", true, "Remove unrelated individuals from pedigree")
+	opMaxDist   = pflag.Uint("max-distance", 3, "Max relational distance to incorporate.")
 )
 
 // setup runs the CLI initialization prior to program logic
@@ -96,10 +97,12 @@ func main() {
 	// Add edges based on relational distance
 	for i := range records {
 		dist := relToLevel(vals[i])
-		n1 := records[i][0]
-		n2 := records[i][1]
-		if dist != 0 {
-			g.AddUnknownPath(n1, n2, dist, vals[i])
+		if dist <= *opMaxDist {
+			n1 := records[i][0]
+			n2 := records[i][1]
+			if dist != 0 {
+				g.AddUnknownPath(n1, n2, dist, vals[i])
+			}
 		}
 	}
 
