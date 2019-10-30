@@ -113,6 +113,7 @@ func main() {
 	// Write the outout
 	gOut := gographviz.NewGraph()
 	gOut.SetName("pedigree")
+	gOut.SetDir(false)
 	graphAttrs := map[string]string{
 		"rankdir": "TB",
 		"splines": "ortho",
@@ -140,7 +141,6 @@ func main() {
 	if out, err := os.Create(*fOut); err == nil {
 		out.WriteString(gOut.String())
 	}
-
 	return
 }
 
