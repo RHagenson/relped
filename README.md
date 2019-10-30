@@ -1,10 +1,12 @@
 # `relped`
 
+[![DOI](https://zenodo.org/badge/217557856.svg)](https://zenodo.org/badge/latestdoi/217557856)
+
 `relped` builds a pedigree from relatedness.
 
 ## Input
 
-Early version of `relped` use a three-column CSV format.
+`relped` can use either a three-column CSV format:
 
 Example:
 
@@ -14,11 +16,7 @@ Indv1, Indv2, Relatedness
 ...
 ```
 
-Note that in this format, the position of columns matters, but the header of columns does not. Entries are textually considered as: "`Indv1` is related to `Indv2` by a ratio of `Relatedness`."
-
-Later versions will include the ability to read ML-Relate's output format.
-
-Example:
+or the ten-columns format from [ML-Relate](http://www.montana.edu/kalinowski/software/ml-relate/index.html):
 
 ```
 Ind1, Ind2,  R, LnL.R.,     U,   HS, FS,   PO, Relationships, Relatedness
@@ -26,20 +24,12 @@ Ind1, Ind2,  R, LnL.R.,     U,   HS, FS,   PO, Relationships, Relatedness
 ...
 ```
 
-Note that in this format, the position of columns matters, but the header of solumns does not. Entries are textually considered as: "`Ind2` is a `R` of `Ind1`, but could also be any of `Relationships` with a measured relatedness of `Relatedness`."
+Note that in either format, the position of columns matters, but the header of columns does not.
 
 ## Output
 
-`relped` produces a Graphviz `.dot` file for graphing. Later versions might include output to common phylogenetic tree formats.
+`relped` produces a Graphviz-formatted file with attributes generally deemed useful for building pedigree images including `rankdir="TB", splines="ortho"`.
 
-The following formating rules are automatically applied:
-
-```
-...
-graph [charset="UTF-8", rankdir="TB", splines="ortho"]
-node [fontname="Sans", shape="record"]
-...
-```
 
 # Contributing
 
