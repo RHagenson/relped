@@ -163,16 +163,16 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func (p *Pedigree) AddNode(name string) error {
+func (p *Pedigree) AddNode(node string) error {
 	nodeAttrs := map[string]string{
 		"fontname": "Sans",
 		"shape":    "record",
 	}
-	return p.g.AddNode("pedigree", name, nodeAttrs)
+	return p.g.AddNode(p.g.Name, node, nodeAttrs)
 }
 
 func (p *Pedigree) AddEdge(src, dst string) error {
-	return p.g.AddEdge(src, dst, false, nil)
+	return p.g.AddEdge(src, dst, p.g.Directed, nil)
 }
 
 func (p *Pedigree) String() string {
