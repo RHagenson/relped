@@ -118,40 +118,65 @@ func main() {
 		// Not implemented
 
 		// Write the outout
-		gOut := gographviz.NewGraph()
-		gOut.SetName("pedigree")
-		gOut.SetDir(false)
-		graphAttrs := map[string]string{
-			"rankdir": "TB",
-			"splines": "ortho",
-		}
-		for attr, val := range graphAttrs {
-			gOut.AddAttr("pedigree", attr, val)
-		}
-		nodeAttrs := map[string]string{
-			"fontname": "Sans",
-			"shape":    "record",
-		}
+		ped := NewPedigree()
+
 		it := g.WeightedEdges()
 		for {
 			if ok := it.Next(); ok {
 				e := it.WeightedEdge()
 				node1 := g.NameFromID(e.From().ID())
 				node2 := g.NameFromID(e.To().ID())
-				gOut.AddNode("pedigree", node1, nodeAttrs)
-				gOut.AddNode("pedigree", node2, nodeAttrs)
-				gOut.AddEdge(node1, node2, false, nil)
+				ped.AddNode(node1)
+				ped.AddNode(node2)
+				ped.AddEdge(node1, node2)
 			} else {
 				break
 			}
 		}
 		if out, err := os.Create(*fOut); err == nil {
-			out.WriteString(gOut.String())
+			out.WriteString(ped.String())
 		}
 	case *fMLRelate != "":
-		Errorf("ML-Relate input not yet implemented.\n")
+		fmt.Fprint(os.Stderr, "ML-Relate input is still experimental.")
+
 	}
 	return
+}
+
+type Pedigree struct {
+	g *gographviz.Graph
+}
+
+func NewPedigree() *Pedigree {
+	g := gographviz.NewGraph()
+	g.SetDir(false)
+	g.SetName("pedigree")
+	graphAttrs := map[string]string{
+		"rankdir": "TB",
+		"splines": "ortho",
+	}
+	for attr, val := range graphAttrs {
+		g.AddAttr("pedigree", attr, val)
+	}
+	return &Pedigree{
+		g: g,
+	}
+}
+
+func (p *Pedigree) AddNode(name string) error {
+	nodeAttrs := map[string]string{
+		"fontname": "Sans",
+		"shape":    "record",
+	}
+	return p.g.AddNode("pedigree", name, nodeAttrs)
+}
+
+func (p *Pedigree) AddEdge(src, dst string) error {
+	return p.g.AddEdge(src, dst, false, nil)
+}
+
+func (p *Pedigree) String() string {
+	return p.g.String()
 }
 
 // Graph has named nodes/vertexes
