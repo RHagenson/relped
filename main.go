@@ -7,12 +7,14 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/awalterschulze/gographviz"
 	"github.com/rs/xid"
 	"github.com/spf13/pflag"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 )
 
@@ -118,9 +120,8 @@ func main() {
 		if *opRmUnrel {
 			g.RmDisconnected()
 		}
-		// TODO: Prune edges based on shortest/cheapest path between
-		// two known individuals
-		// Not implemented
+		// Prune edges to only the shortest between two knowns
+		g = g.PruneToShortest()
 
 		// Write the outout
 		ped := NewPedigree()
@@ -168,7 +169,7 @@ func main() {
 			if dist, err := MLRelateToDist(rowV[2]); err == nil {
 				dists[rowI] = dist
 			} else {
-				Errorf("Did not recognize R entry: %s\n", err)
+				Errorf("Did not recognize codified entry: %s\n", err)
 				os.Exit(2)
 			}
 			if val, err := strconv.ParseFloat(rowV[9], 64); err == nil {
@@ -206,13 +207,11 @@ func main() {
 		if *opRmUnrel {
 			g.RmDisconnected()
 		}
-		// TODO: Prune edges based on shortest/cheapest path between
-		// two known individuals
-		// Not implemented
+		// Prune edges to only the shortest between two knowns
+		g = g.PruneToShortest()
 
 		// Write the outout
 		ped := NewPedigree()
-
 		it := g.WeightedEdges()
 		for {
 			if ok := it.Next(); ok {
@@ -258,8 +257,10 @@ func NewPedigree() *Pedigree {
 	g.SetDir(false)
 	g.SetName("pedigree")
 	graphAttrs := map[string]string{
-		"rankdir": "TB",
-		"splines": "ortho",
+		"rankdir":  "TB",
+		"splines":  "ortho",
+		"ratio":    "auto",
+		"mincross": "2.0",
 	}
 	for attr, val := range graphAttrs {
 		g.AddAttr("pedigree", attr, val)
@@ -298,6 +299,37 @@ func NewGraph() *Graph {
 	}
 }
 
+func (self *Graph) PruneToShortest() *Graph {
+	g := NewGraph()
+
+	for name1, node1 := range self.m {
+		if strings.Contains(name1, "Unknown") {
+			continue
+		}
+		for name2, node2 := range self.m {
+			if strings.Contains(name2, "Unknown") {
+				continue
+			}
+			if name1 == name2 {
+				continue
+			}
+			paths := path.YenKShortestPaths(self.g, 10, node1, node2)
+			for i := range paths {
+				names := make([]string, len(paths[i]))
+				weights := make([]float64, len(names)-1)
+				for j := range paths[i] {
+					names[j] = self.NameFromID(paths[i][j].ID())
+				}
+				for i := 1; i < len(names); i++ {
+					weights[i-1] = self.WeightedEdge(names[i-1], names[i]).Weight()
+				}
+				g.AddPath(names, weights)
+			}
+		}
+	}
+	return g
+}
+
 func (self *Graph) Nodes() graph.Nodes {
 	return self.g.Nodes()
 }
@@ -318,6 +350,10 @@ func (self *Graph) RmDisconnected() {
 			self.RemoveNode(name)
 		}
 	}
+}
+
+func (self *Graph) Weight(xid, yid int64) (w float64, ok bool) {
+	return self.g.Weight(xid, yid)
 }
 
 func (self *Graph) From(name string) graph.Nodes {
@@ -345,6 +381,12 @@ func (self *Graph) Edge(n1, n2 string) graph.Edge {
 	uid := self.m[n1].ID()
 	vid := self.m[n2].ID()
 	return self.g.Edge(uid, vid)
+}
+
+func (self *Graph) WeightedEdge(n1, n2 string) graph.WeightedEdge {
+	uid := self.m[n1].ID()
+	vid := self.m[n2].ID()
+	return self.g.WeightedEdge(uid, vid)
 }
 
 func (self *Graph) Node(name string) graph.Node {
@@ -378,6 +420,14 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 	}
 }
 
+func (self *Graph) AddEqualWeightPath(names []string, weight float64) {
+	weights := make([]float64, len(names)-1)
+	for i := range weights {
+		weights[i] = weight
+	}
+	self.AddPath(names, weights)
+}
+
 // AddUnknownPath adds a path from n1 through n "unknowns" to n2 distributing the
 // weight accordingly
 func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
@@ -388,7 +438,7 @@ func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 	path[len(path)-1] = n2
 	// Add unknowns
 	for i := 1; i < len(path)-1; i++ {
-		path[i] = xid.New().String()
+		path[i] = "Unknown" + xid.New().String()
 	}
 	weights := make([]float64, len(path)-1)
 	for i := range weights {
