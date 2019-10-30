@@ -52,7 +52,8 @@ func setup() {
 		Errorf("One of --input or --ml-relate is required.\n")
 		os.Exit(1)
 	case *fMLRelate != "" && 3 <= *opMaxDist:
-
+		Errorf("ML-Relate does not handle distance > 3, set --max-distance <= 3.\n")
+		os.Exit(1)
 	}
 }
 
