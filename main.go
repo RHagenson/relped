@@ -49,6 +49,8 @@ func setup() {
 		pflag.Usage()
 		Errorf("One of --input or --ml-relate is required.\n")
 		os.Exit(1)
+	case *fMLRelate != "" && 3 <= *opMaxDist:
+
 	}
 }
 
@@ -63,12 +65,14 @@ func main() {
 		defer in.Close()
 		if err != nil {
 			Errorf("Could not read input file: %s\n", err)
+			os.Exit(2)
 		}
 		inCsv := csv.NewReader(in)
 		inCsv.FieldsPerRecord = 3 // Simple three column format: Indv1, Indv2, Relatedness
 		records, err := inCsv.ReadAll()
 		if err != nil {
 			Errorf("Problem parsing line: %s\n", err)
+			os.Exit(2)
 		}
 
 		// Remove header
@@ -80,7 +84,8 @@ func main() {
 			if val, err := strconv.ParseFloat(rowV[2], 64); err == nil {
 				vals[rowI] = val
 			} else {
-				log.Fatalf("Could not read entry as float: %s\n", err)
+				Errorf("Could not read entry as float: %s\n", err)
+				os.Exit(2)
 			}
 		}
 
@@ -135,12 +140,113 @@ func main() {
 		}
 		if out, err := os.Create(*fOut); err == nil {
 			out.WriteString(ped.String())
+			out.Close()
 		}
 	case *fMLRelate != "":
-		fmt.Fprint(os.Stderr, "ML-Relate input is still experimental.")
+		in, err := os.Open(*fMLRelate)
+		defer in.Close()
+		if err != nil {
+			Errorf("Could not read input file: %s\n", err)
+			os.Exit(2)
+		}
+		inCsv := csv.NewReader(in)
+		// Columns:
+		// Ind1, Ind2, R, LnL.R., U, HS, FS, PO, Relationships, Relatedness
+		inCsv.FieldsPerRecord = 10
+		records, err := inCsv.ReadAll()
+		if err != nil {
+			Errorf("Problem parsing line: %s\n", err)
+			os.Exit(2)
+		}
+		// Remove header
+		records = records[1:]
 
+		// Extract relatedness distance and values
+		dists := make([]uint, len(records))
+		vals := make([]float64, len(records))
+		for rowI, rowV := range records {
+			if dist, err := MLRelateToDist(rowV[2]); err == nil {
+				dists[rowI] = dist
+			} else {
+				Errorf("Did not recognize R entry: %s\n", err)
+				os.Exit(2)
+			}
+			if val, err := strconv.ParseFloat(rowV[9], 64); err == nil {
+				vals[rowI] = val
+			} else {
+				Errorf("Could not read entry as float: %s\n", err)
+				os.Exit(2)
+			}
+		}
+
+		// Optionally normalize values
+		if *opNormalize { // Normalize
+			vals = normalize(vals)
+		} else {
+			for i, v := range vals { // Replace negatives as unrelated (i.e., 0)
+				if v < 0 {
+					vals[i] = 0
+				}
+			}
+		}
+		// Build graph
+		g := NewGraph()
+		// Add paths from node to node based on relational distance
+		for i := range records {
+			dist := dists[i]
+			if dist <= *opMaxDist {
+				indv1 := records[i][0]
+				indv2 := records[i][1]
+				if indv1 != indv2 {
+					g.AddUnknownPath(indv1, indv2, dist, vals[i])
+				}
+			}
+		}
+		// Remove disconnected individuals
+		if *opRmUnrel {
+			g.RmDisconnected()
+		}
+		// TODO: Prune edges based on shortest/cheapest path between
+		// two known individuals
+		// Not implemented
+
+		// Write the outout
+		ped := NewPedigree()
+
+		it := g.WeightedEdges()
+		for {
+			if ok := it.Next(); ok {
+				e := it.WeightedEdge()
+				node1 := g.NameFromID(e.From().ID())
+				node2 := g.NameFromID(e.To().ID())
+				ped.AddNode(node1)
+				ped.AddNode(node2)
+				ped.AddEdge(node1, node2)
+			} else {
+				break
+			}
+		}
+		if out, err := os.Create(*fOut); err == nil {
+			out.WriteString(ped.String())
+			out.Close()
+		}
 	}
 	return
+}
+
+func MLRelateToDist(cat string) (uint, error) {
+	switch cat {
+	case "PO":
+		return 1, nil
+	case "FS":
+		return 2, nil
+	case "HS":
+		return 3, nil
+	case "U":
+		return 0, nil
+	default:
+		return 0, fmt.Errorf("entry %q not understood", cat)
+	}
 }
 
 type Pedigree struct {
@@ -304,10 +410,9 @@ func normalize(vals []float64) []float64 {
 	return vals
 }
 
-// Errorf standardizes notifying user of failure and failing
+// Errorf standardizes notifying user of failure
 func Errorf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
-	os.Exit(2)
 }
 
 // relToLevel computes the relational distance given the relatedness score
