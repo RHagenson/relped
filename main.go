@@ -27,10 +27,10 @@ var (
 
 // General use flags
 var (
-	opNormalize = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
-	opHelp      = pflag.Bool("help", false, "Print help and exit")
-	opRmUnrel   = pflag.Bool("rm-unrelated", true, "Remove unrelated individuals from pedigree")
-	opMaxDist   = pflag.Uint("max-distance", 9, "Max relational distance to incorporate.")
+	opNormalize     = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
+	opHelp          = pflag.Bool("help", false, "Print help and exit")
+	opKeepUnrelated = pflag.Bool("keep-unrelated", false, "Keep disconnect/unrelated individuals in pedigree")
+	opMaxDist       = pflag.Uint("max-distance", 9, "Max relational distance to incorporate.")
 )
 
 // setup runs the CLI initialization prior to program logic
@@ -124,7 +124,7 @@ func main() {
 			}
 		}
 		// Remove disconnected individuals
-		if *opRmUnrel {
+		if !*opKeepUnrelated {
 			g.RmDisconnected()
 		}
 		// Prune edges to only the shortest between two knowns
@@ -211,7 +211,7 @@ func main() {
 			}
 		}
 		// Remove disconnected individuals
-		if *opRmUnrel {
+		if !*opKeepUnrelated {
 			g.RmDisconnected()
 		}
 		// Prune edges to only the shortest between two knowns
