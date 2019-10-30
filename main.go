@@ -55,6 +55,12 @@ func setup() {
 		Errorf("ML-Relate does not handle distance > 3, set --max-distance <= 3.\n")
 		os.Exit(1)
 	}
+
+	// Warning states
+	switch {
+	case *fMLRelate != "" && *opNormalize:
+		Errorf("Normalizing relatedness score with ML-Relate input has not effect.\n")
+	}
 }
 
 func main() {
