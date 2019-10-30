@@ -59,7 +59,7 @@ func setup() {
 	// Warning states
 	switch {
 	case *fMLRelate != "" && *opNormalize:
-		Errorf("Normalizing relatedness score with ML-Relate input has not effect.\n")
+		Errorf("Normalizing relatedness scores with ML-Relate input has no effect.\n")
 	}
 }
 
