@@ -20,7 +20,7 @@ or the ten-columns format from [ML-Relate](http://www.montana.edu/kalinowski/sof
 
 ```
 Ind1, Ind2,  R, LnL.R.,     U,   HS, FS,   PO, Relationships, Relatedness
- 612,  608, FS, -82.43, 15.47, 5.71,  -, 0.86,            FS, 0.6426
+ 612,  608, FS, -82.43, 15.47, 5.71,  -, 0.86,            FS,      0.6426
 ...
 ```
 
