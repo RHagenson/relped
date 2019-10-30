@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/awalterschulze/gographviz"
 	"github.com/rs/xid"
 	"github.com/spf13/pflag"
 	"gonum.org/v1/gonum/floats"
@@ -26,7 +27,7 @@ var (
 	opNormalize = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
 	opHelp      = pflag.Bool("help", false, "Print help and exit")
 	opRmUnrel   = pflag.Bool("rm-unrelated", true, "Remove unrelated individuals from pedigree")
-	opMaxDist   = pflag.Uint("max-distance", 3, "Max relational distance to incorporate.")
+	opMaxDist   = pflag.Uint("max-distance", 9, "Max relational distance to incorporate.")
 )
 
 // setup runs the CLI initialization prior to program logic
@@ -93,7 +94,11 @@ func main() {
 	for i := range records {
 		if dist, rel := relToLevel(vals[i]); rel { // Related at some distance
 			if dist <= *opMaxDist {
-				g.AddUnknownPath(records[i][0], records[i][1], dist, vals[i])
+				indv1 := records[i][0]
+				indv2 := records[i][1]
+				if indv1 != indv2 {
+					g.AddUnknownPath(indv1, indv2, dist, vals[i])
+				}
 			}
 		}
 	}
@@ -101,6 +106,42 @@ func main() {
 	if *opRmUnrel {
 		g.RmDisconnected()
 	}
+	// TODO: Prune edges based on shortest/cheapest path between
+	// two known individuals
+	// Not implemented
+
+	// Write the outout
+	gOut := gographviz.NewGraph()
+	gOut.SetName("pedigree")
+	graphAttrs := map[string]string{
+		"rankdir": "TB",
+		"splines": "ortho",
+	}
+	for attr, val := range graphAttrs {
+		gOut.AddAttr("pedigree", attr, val)
+	}
+	nodeAttrs := map[string]string{
+		"fontname": "Sans",
+		"shape":    "record",
+	}
+	it := g.WeightedEdges()
+	for {
+		if ok := it.Next(); ok {
+			e := it.WeightedEdge()
+			node1 := g.NameFromID(e.From().ID())
+			node2 := g.NameFromID(e.To().ID())
+			gOut.AddNode("pedigree", node1, nodeAttrs)
+			gOut.AddNode("pedigree", node2, nodeAttrs)
+			gOut.AddEdge(node1, node2, false, nil)
+		} else {
+			break
+		}
+	}
+	if out, err := os.Create(*fOut); err == nil {
+		out.WriteString(gOut.String())
+	}
+
+	return
 }
 
 // Graph has named nodes/vertexes
@@ -120,6 +161,15 @@ func (self *Graph) Nodes() graph.Nodes {
 	return self.g.Nodes()
 }
 
+func (self *Graph) NameFromID(id int64) string {
+	for name, node := range self.m {
+		if node.ID() == id {
+			return name
+		}
+	}
+	return ""
+}
+
 func (self *Graph) RmDisconnected() {
 	for name := range self.m {
 		nodes := self.From(name)
@@ -131,8 +181,9 @@ func (self *Graph) RmDisconnected() {
 
 func (self *Graph) From(name string) graph.Nodes {
 	if node, ok := self.m[name]; ok {
-		self.g.From(node.ID())
+		return self.g.From(node.ID())
 	}
+	return nil
 }
 
 func (self *Graph) RemoveNode(name string) {
@@ -163,17 +214,23 @@ func (self *Graph) Edges() graph.Edges {
 	return self.g.Edges()
 }
 
+func (self *Graph) WeightedEdges() graph.WeightedEdges {
+	return self.g.WeightedEdges()
+}
+
 func (self *Graph) NewWeightedEdge(n1, n2 string, weight float64) graph.WeightedEdge {
 	uid := self.m[n1]
 	vid := self.m[n2]
-	return self.g.NewWeightedEdge(uid, vid, weight)
+	e := self.g.NewWeightedEdge(uid, vid, weight)
+	self.g.SetWeightedEdge(e)
+	return e
 }
 
 func (self *Graph) AddPath(names []string, weights []float64) {
 	if len(weights) != len(names)-1 {
 		log.Fatalf("Weights along path should be one less than names along path.")
 	}
-	for i := 1; i <= len(names); i++ {
+	for i := 1; i < len(names); i++ {
 		self.AddNode(names[i-1])
 		self.AddNode(names[i])
 		self.NewWeightedEdge(names[i-1], names[i], weights[i-1])
@@ -184,14 +241,14 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 // weight accordingly
 func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 	incWeight := weight / float64(n)
-	// TODO: Allocate array of n+2 for path filling in the inner portion
-	// with unknowns as below, but not requiring two append statements
-	unknowns := make([]string, n)
-	for i := 0; i < len(unknowns); i++ {
-		unknowns[i] = xid.New().String()
+	path := make([]string, n+2)
+	// Add knowns
+	path[0] = n1
+	path[len(path)-1] = n2
+	// Add unknowns
+	for i := 1; i < len(path)-1; i++ {
+		path[i] = xid.New().String()
 	}
-	path := append([]string{n1}, unknowns...)
-	path = append(path, n2)
 	weights := make([]float64, len(path)-1)
 	for i := range weights {
 		weights[i] = incWeight
