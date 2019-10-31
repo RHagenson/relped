@@ -229,3 +229,84 @@ func main() {
 	}
 	return
 }
+
+type CsvInput interface {
+	Indvs() []string
+	Relatedness(i1, i2 string) float64
+	RelDistance(i1, i2 string) uint
+}
+
+type ThreeColumnCsv struct {
+	rels     map[string]map[string]float64
+	indvs    []string
+	min, max float64
+}
+
+var _ CsvInput = new(ThreeColumnCsv)
+
+func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
+	in, err := os.Open(*fIn)
+	defer in.Close()
+	if err != nil {
+		log.Errorf("Could not read input file: %s\n", err)
+	}
+	inCsv := csv.NewReader(in)
+	inCsv.FieldsPerRecord = 3 // Simple three column format: Indv1, Indv2, Relatedness
+	records, err := inCsv.ReadAll()
+	if err != nil {
+		log.Errorf("Problem parsing line: %s\n", err)
+	}
+	records = util.RmHeader(records)
+
+	c := &ThreeColumnCsv{
+		rels:  make(map[string]map[string]float64, len(records)),
+		indvs: make([]string, 0, len(records)),
+		min:   0,
+		max:   1,
+	}
+
+	indvMap := make(map[string]struct{}, len(records))
+
+	for i := range records {
+		i1 := records[i][0]
+		i2 := records[i][1]
+		rel := 0.0
+		if val, err := strconv.ParseFloat(records[i][2], 64); err == nil {
+			rel = val
+		}
+		c.rels[i1][i2] = rel
+		if rel < c.min {
+			c.min = rel
+		}
+		if c.max < rel {
+			c.max = rel
+		}
+		indvMap[i1] = struct{}{}
+		indvMap[i2] = struct{}{}
+	}
+	c.indvs = make([]string, 0, len(indvMap))
+	for indv := range indvMap {
+		c.indvs = append(c.indvs, indv)
+	}
+
+	if normalize {
+		for i1, m := range c.rels {
+			for i2, rel := range m {
+				c.rels[i1][i2] = (rel - c.min) / (c.max - c.min)
+			}
+		}
+	}
+
+	return c
+}
+
+func (c *ThreeColumnCsv) Indvs() []string {
+	return c.indvs
+}
+
+func (c *ThreeColumnCsv) Relatedness(i1, i2 string) float64 {
+	return c.rels[i1][i2]
+}
+func (c *ThreeColumnCsv) RelDistance(i1, i2 string) uint {
+	return util.RelToLevel(c.Relatedness(i1, i2))
+}
