@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rs/xid"
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -21,6 +22,24 @@ func NewGraph() *Graph {
 		g: simple.NewWeightedUndirectedGraph(0, 0),
 		m: make(map[string]gonumGraph.Node),
 	}
+}
+
+func NewGraphFromCsvInput(in csvin.CsvInput) *Graph {
+	indvs := in.Indvs()
+	g := NewGraph()
+	// Add paths from node to node based on relational distance
+	for i := range indvs {
+		for j := i + 1; j < len(indvs); j++ {
+			i1 := indvs[i]
+			i2 := indvs[j]
+			if i1 != i2 {
+				dist := in.RelDistance(i1, i2)
+				weight := in.Relatedness(i1, i2)
+				g.AddUnknownPath(i1, i2, dist, weight)
+			}
+		}
+	}
+	return g
 }
 
 func (self *Graph) PruneToShortest() *Graph {

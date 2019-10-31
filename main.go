@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/csv"
 	"os"
-	"strconv"
 
+	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/pedigree"
-	"github.com/rhagenson/relped/internal/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
@@ -17,9 +15,9 @@ const maxdist = 9
 
 // Required flags
 var (
-	fIn       = pflag.String("input", "", "Input file (optional)")
-	fOut      = pflag.String("output", "", "Output file (required)")
-	fMLRelate = pflag.String("ml-relate", "", "Input ML-Relate file (optional, implies --max-distance=3)")
+	fThreeColumn = pflag.String("three-column", "", "Input standard three-column file (optional)")
+	fMLRelate    = pflag.String("ml-relate", "", "Input ML-Relate file (optional)")
+	fOut         = pflag.String("output", "", "Output file (required)")
 )
 
 // General use flags
@@ -59,7 +57,7 @@ func setup() {
 	case *fOut == "":
 		pflag.Usage()
 		log.Fatalf("Must provide both an output name.\n")
-	case *fIn == "" && *fMLRelate == "":
+	case *fThreeColumn == "" && *fMLRelate == "":
 		pflag.Usage()
 		log.Fatalf("One of --input or --ml-relate is required.\n")
 	case *fMLRelate != "" && 3 < *opMaxDist:
@@ -73,53 +71,18 @@ func main() {
 
 	// Read in CSV input
 	switch {
-	case *fIn != "":
-		in, err := os.Open(*fIn)
+	case *fThreeColumn != "":
+		// Open input file
+		in, err := os.Open(*fThreeColumn)
 		defer in.Close()
 		if err != nil {
-			log.Errorf("Could not read input file: %s\n", err)
+			log.Fatalf("Could not read input file: %s\n", err)
 		}
-		inCsv := csv.NewReader(in)
-		inCsv.FieldsPerRecord = 3 // Simple three column format: Indv1, Indv2, Relatedness
-		records, err := inCsv.ReadAll()
-		if err != nil {
-			log.Errorf("Problem parsing line: %s\n", err)
-		}
-
-		// Remove header
-		records = util.RmHeader(records)
-
-		// Extract relatedness values
-		vals := make([]float64, len(records))
-		for rowI, rowV := range records {
-			if val, err := strconv.ParseFloat(rowV[2], 64); err == nil {
-				vals[rowI] = val
-			} else {
-				log.Errorf("Could not read entry as float: %s\n", err)
-			}
-		}
-
-		// Optionally normalize values
-		if *opNormalize {
-			vals = util.Normalize(vals)
-		} else {
-			vals = util.RmZeros(vals)
-		}
+		input := csvin.NewThreeColumnCsv(in, *opNormalize)
 
 		// Build graph
-		g := graph.NewGraph()
-		// Add paths from node to node based on relational distance
-		for i := range records {
-			if dist, rel := util.RelToLevel(vals[i]); rel { // Related at some distance
-				if dist <= *opMaxDist {
-					indv1 := records[i][0]
-					indv2 := records[i][1]
-					if indv1 != indv2 {
-						g.AddUnknownPath(indv1, indv2, dist, vals[i])
-					}
-				}
-			}
-		}
+		g := graph.NewGraphFromCsvInput(input)
+
 		// Remove disconnected individuals
 		if !*opKeepUnrelated {
 			g.RmDisconnected()
@@ -128,78 +91,25 @@ func main() {
 		g = g.PruneToShortest()
 
 		// Write the outout
-		ped := pedigree.NewPedigree()
-
-		it := g.WeightedEdges()
-		for {
-			if ok := it.Next(); ok {
-				e := it.WeightedEdge()
-				node1 := g.NameFromID(e.From().ID())
-				node2 := g.NameFromID(e.To().ID())
-				ped.AddNode(node1)
-				ped.AddNode(node2)
-				ped.AddEdge(node1, node2)
-			} else {
-				break
-			}
+		ped := pedigree.NewPedigreeFromGraph(g)
+		out, err := os.Create(*fOut)
+		defer out.Close()
+		if err != nil {
+			log.Fatalf("Could not create output file: %s\n", err)
 		}
-		if out, err := os.Create(*fOut); err == nil {
-			out.WriteString(ped.String())
-			out.Close()
-		}
+		out.WriteString(ped.String())
 	case *fMLRelate != "":
 		in, err := os.Open(*fMLRelate)
 		defer in.Close()
 		if err != nil {
 			log.Errorf("Could not read input file: %s\n", err)
 		}
-		inCsv := csv.NewReader(in)
-		// Columns:
-		// Ind1, Ind2, R, LnL.R., U, HS, FS, PO, Relationships, Relatedness
-		inCsv.FieldsPerRecord = 10
-		records, err := inCsv.ReadAll()
-		if err != nil {
-			log.Errorf("Problem parsing line: %s\n", err)
-		}
 
-		// Remove header
-		records = util.RmHeader(records)
+		input := csvin.NewMLRelateCsv(in, *opNormalize)
 
-		// Extract relatedness distance and values
-		dists := make([]uint, len(records))
-		vals := make([]float64, len(records))
-		for rowI, rowV := range records {
-			if dist, err := util.MLRelateToDist(rowV[2]); err == nil {
-				dists[rowI] = dist
-			} else {
-				log.Errorf("Did not recognize codified entry: %s\n", err)
-			}
-			if val, err := strconv.ParseFloat(rowV[9], 64); err == nil {
-				vals[rowI] = val
-			} else {
-				log.Errorf("Could not read entry as float: %s\n", err)
-			}
-		}
-
-		// Optionally normalize values
-		if *opNormalize {
-			vals = util.Normalize(vals)
-		} else {
-			vals = util.RmZeros(vals)
-		}
 		// Build graph
-		g := graph.NewGraph()
-		// Add paths from node to node based on relational distance
-		for i := range records {
-			dist := dists[i]
-			if dist <= *opMaxDist {
-				indv1 := records[i][0]
-				indv2 := records[i][1]
-				if indv1 != indv2 {
-					g.AddUnknownPath(indv1, indv2, dist, vals[i])
-				}
-			}
-		}
+		g := graph.NewGraphFromCsvInput(input)
+
 		// Remove disconnected individuals
 		if !*opKeepUnrelated {
 			g.RmDisconnected()
@@ -208,105 +118,13 @@ func main() {
 		g = g.PruneToShortest()
 
 		// Write the outout
-		ped := pedigree.NewPedigree()
-		it := g.WeightedEdges()
-		for {
-			if ok := it.Next(); ok {
-				e := it.WeightedEdge()
-				node1 := g.NameFromID(e.From().ID())
-				node2 := g.NameFromID(e.To().ID())
-				ped.AddNode(node1)
-				ped.AddNode(node2)
-				ped.AddEdge(node1, node2)
-			} else {
-				break
-			}
+		ped := pedigree.NewPedigreeFromGraph(g)
+		out, err := os.Create(*fOut)
+		defer out.Close()
+		if err != nil {
+			log.Fatalf("Could not create output file: %s\n", err)
 		}
-		if out, err := os.Create(*fOut); err == nil {
-			out.WriteString(ped.String())
-			out.Close()
-		}
+		out.WriteString(ped.String())
 	}
 	return
-}
-
-type CsvInput interface {
-	Indvs() []string
-	Relatedness(i1, i2 string) float64
-	RelDistance(i1, i2 string) uint
-}
-
-type ThreeColumnCsv struct {
-	rels     map[string]map[string]float64
-	indvs    []string
-	min, max float64
-}
-
-var _ CsvInput = new(ThreeColumnCsv)
-
-func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
-	in, err := os.Open(*fIn)
-	defer in.Close()
-	if err != nil {
-		log.Errorf("Could not read input file: %s\n", err)
-	}
-	inCsv := csv.NewReader(in)
-	inCsv.FieldsPerRecord = 3 // Simple three column format: Indv1, Indv2, Relatedness
-	records, err := inCsv.ReadAll()
-	if err != nil {
-		log.Errorf("Problem parsing line: %s\n", err)
-	}
-	records = util.RmHeader(records)
-
-	c := &ThreeColumnCsv{
-		rels:  make(map[string]map[string]float64, len(records)),
-		indvs: make([]string, 0, len(records)),
-		min:   0,
-		max:   1,
-	}
-
-	indvMap := make(map[string]struct{}, len(records))
-
-	for i := range records {
-		i1 := records[i][0]
-		i2 := records[i][1]
-		rel := 0.0
-		if val, err := strconv.ParseFloat(records[i][2], 64); err == nil {
-			rel = val
-		}
-		c.rels[i1][i2] = rel
-		if rel < c.min {
-			c.min = rel
-		}
-		if c.max < rel {
-			c.max = rel
-		}
-		indvMap[i1] = struct{}{}
-		indvMap[i2] = struct{}{}
-	}
-	c.indvs = make([]string, 0, len(indvMap))
-	for indv := range indvMap {
-		c.indvs = append(c.indvs, indv)
-	}
-
-	if normalize {
-		for i1, m := range c.rels {
-			for i2, rel := range m {
-				c.rels[i1][i2] = (rel - c.min) / (c.max - c.min)
-			}
-		}
-	}
-
-	return c
-}
-
-func (c *ThreeColumnCsv) Indvs() []string {
-	return c.indvs
-}
-
-func (c *ThreeColumnCsv) Relatedness(i1, i2 string) float64 {
-	return c.rels[i1][i2]
-}
-func (c *ThreeColumnCsv) RelDistance(i1, i2 string) uint {
-	return util.RelToLevel(c.Relatedness(i1, i2))
 }
