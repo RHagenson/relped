@@ -24,7 +24,7 @@ func NewGraph() *Graph {
 	}
 }
 
-func NewGraphFromCsvInput(in csvin.CsvInput) *Graph {
+func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph()
 	// Add paths from node to node based on relational distance
@@ -34,8 +34,10 @@ func NewGraphFromCsvInput(in csvin.CsvInput) *Graph {
 			i2 := indvs[j]
 			if i1 != i2 {
 				dist := in.RelDistance(i1, i2)
-				weight := in.Relatedness(i1, i2)
-				g.AddUnknownPath(i1, i2, dist, weight)
+				if dist <= maxDist {
+					weight := in.Relatedness(i1, i2)
+					g.AddUnknownPath(i1, i2, dist, weight)
+				}
 			}
 		}
 	}

@@ -81,7 +81,7 @@ func main() {
 		input := csvin.NewThreeColumnCsv(in, *opNormalize)
 
 		// Build graph
-		g := graph.NewGraphFromCsvInput(input)
+		g := graph.NewGraphFromCsvInput(input, *opMaxDist)
 
 		// Remove disconnected individuals
 		if !*opKeepUnrelated {
@@ -108,7 +108,7 @@ func main() {
 		input := csvin.NewMLRelateCsv(in, *opNormalize)
 
 		// Build graph
-		g := graph.NewGraphFromCsvInput(input)
+		g := graph.NewGraphFromCsvInput(input, *opMaxDist)
 
 		// Remove disconnected individuals
 		if !*opKeepUnrelated {
