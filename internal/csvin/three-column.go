@@ -13,7 +13,7 @@ var _ CsvInput = new(ThreeColumnCsv)
 
 type ThreeColumnCsv struct {
 	rels     map[string]map[string]float64
-	indvs    []string
+	indvs    map[string]struct{}
 	min, max float64
 }
 
@@ -28,17 +28,17 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 
 	c := &ThreeColumnCsv{
 		rels:  make(map[string]map[string]float64, len(records)),
-		indvs: make([]string, 0, len(records)),
+		indvs: make(map[string]struct{}, len(records)),
 		min:   0,
 		max:   1,
 	}
-
-	indvMap := make(map[string]struct{}, len(records))
 
 	for i := range records {
 		i1 := records[i][0]
 		i2 := records[i][1]
 		rel := 0.0
+
+		// Set relatedness value
 		if val, err := strconv.ParseFloat(records[i][2], 64); err == nil {
 			if val < 0 { // Negative value just means unrelated
 				rel = 0
@@ -58,11 +58,9 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 		if c.max < rel {
 			c.max = rel
 		}
-		indvMap[i1] = struct{}{}
-		indvMap[i2] = struct{}{}
-	}
-	for indv := range indvMap {
-		c.indvs = append(c.indvs, indv)
+		// Add individuals to set for building non-redundant list of individuals
+		c.indvs[i1] = struct{}{}
+		c.indvs[i2] = struct{}{}
 	}
 
 	if normalize {
@@ -76,7 +74,7 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 	return c
 }
 
-func (c *ThreeColumnCsv) Indvs() []string {
+func (c *ThreeColumnCsv) Indvs() map[string]struct{} {
 	return c.indvs
 }
 

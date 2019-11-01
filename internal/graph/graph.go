@@ -27,10 +27,8 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph()
 	// Add paths from node to node based on relational distance
-	for i := range indvs {
-		for j := i + 1; j < len(indvs); j++ {
-			i1 := indvs[i]
-			i2 := indvs[j]
+	for i1 := range indvs {
+		for i2 := range indvs {
 			if i1 != i2 {
 				dist := in.RelDistance(i1, i2)
 				if dist <= maxDist {
@@ -43,13 +41,16 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 	return g
 }
 
-func (self *Graph) PruneToShortest(indvs []string) *Graph {
+func (self *Graph) PruneToShortest(indvs map[string]struct{}) *Graph {
 	g := NewGraph()
-	for i := 0; i < len(indvs); i++ {
-		for j := i + 1; j < len(indvs); j++ {
-			node1 := self.Node(indvs[i])
-			node2 := self.Node(indvs[j])
-			paths := path.YenKShortestPaths(self.g, 1, node1, node2)
+	for i1 := range indvs {
+		for i2 := range indvs {
+			if i1 == i2 {
+				continue
+			}
+			node1 := self.Node(i1)
+			node2 := self.Node(i2)
+			paths := path.YenKShortestPaths(self.g, 2, node1, node2)
 			for i := range paths {
 				names := make([]string, len(paths[i]))
 				weights := make([]float64, len(names)-1)
