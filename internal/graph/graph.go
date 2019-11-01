@@ -2,7 +2,6 @@ package graph
 
 import (
 	"log"
-	"strings"
 
 	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rs/xid"
@@ -44,21 +43,13 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 	return g
 }
 
-func (self *Graph) PruneToShortest() *Graph {
+func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
-
-	for name1, node1 := range self.m {
-		if strings.Contains(name1, "Unknown") {
-			continue
-		}
-		for name2, node2 := range self.m {
-			if strings.Contains(name2, "Unknown") {
-				continue
-			}
-			if name1 == name2 {
-				continue
-			}
-			paths := path.YenKShortestPaths(self.g, 10, node1, node2)
+	for i := 0; i < len(indvs); i++ {
+		for j := i + 1; j < len(indvs); j++ {
+			node1 := self.Node(indvs[i])
+			node2 := self.Node(indvs[j])
+			paths := path.YenKShortestPaths(self.g, 1, node1, node2)
 			for i := range paths {
 				names := make([]string, len(paths[i]))
 				weights := make([]float64, len(names)-1)
@@ -183,7 +174,7 @@ func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 	path[len(path)-1] = n2
 	// Add unknowns
 	for i := 1; i < len(path)-1; i++ {
-		path[i] = "Unknown" + xid.New().String()
+		path[i] = xid.New().String()
 	}
 	weights := make([]float64, len(path)-1)
 	for i := range weights {

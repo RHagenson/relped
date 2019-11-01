@@ -88,7 +88,7 @@ func main() {
 			g.RmDisconnected()
 		}
 		// Prune edges to only the shortest between two knowns
-		g = g.PruneToShortest()
+		g = g.PruneToShortest(input.Indvs())
 
 		// Write the outout
 		ped := pedigree.NewPedigreeFromGraph(g)
@@ -115,7 +115,7 @@ func main() {
 			g.RmDisconnected()
 		}
 		// Prune edges to only the shortest between two knowns
-		g = g.PruneToShortest()
+		g = g.PruneToShortest(input.Indvs())
 
 		// Write the outout
 		ped := pedigree.NewPedigreeFromGraph(g)
