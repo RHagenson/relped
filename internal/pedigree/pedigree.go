@@ -47,7 +47,7 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g *graph.Graph, indvs map[string]struct{}) *Pedigree {
+func NewPedigreeFromGraph(g *graph.Graph, indvs []string) *Pedigree {
 	ped := NewPedigree()
 
 	it := g.WeightedEdges()
@@ -56,8 +56,8 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs map[string]struct{}) *Pedigree {
 			e := it.WeightedEdge()
 			i1 := g.NameFromID(e.From().ID())
 			i2 := g.NameFromID(e.To().ID())
-			_, i1Known := indvs[i1]
-			_, i2Known := indvs[i2]
+			i1Known := stringInSlice(i1, indvs)
+			i2Known := stringInSlice(i2, indvs)
 			if i1Known {
 				ped.AddKnownIndv(i1)
 			} else {
@@ -70,7 +70,7 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs map[string]struct{}) *Pedigree {
 			}
 			if i1Known && i2Known {
 				ped.AddKnownRel(i1, i2)
-			} else { // Bo
+			} else {
 				ped.AddUnknownRel(i1, i2)
 			}
 		} else {
@@ -78,6 +78,15 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs map[string]struct{}) *Pedigree {
 		}
 	}
 	return ped
+}
+
+func stringInSlice(str string, list []string) bool {
+	for _, elm := range list {
+		if elm == str {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Pedigree) AddKnownIndv(node string) error {

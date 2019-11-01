@@ -14,7 +14,7 @@ var _ CsvInput = new(MLRelateCsv)
 type MLRelateCsv struct {
 	rels     map[string]map[string]float64
 	dists    map[string]map[string]uint
-	indvs    map[string]struct{}
+	indvs    []string
 	min, max float64
 }
 
@@ -32,10 +32,12 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 	c := &MLRelateCsv{
 		rels:  make(map[string]map[string]float64, len(records)),
 		dists: make(map[string]map[string]uint, len(records)),
-		indvs: make(map[string]struct{}, len(records)),
+		indvs: make([]string, 0, len(records)),
 		min:   0,
 		max:   1,
 	}
+
+	indvMap := make(map[string]struct{}, len(records))
 
 	for i := range records {
 		i1 := records[i][0]
@@ -56,15 +58,14 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 			c.rels[i1] = make(map[string]float64, len(records))
 			c.rels[i1][i2] = rel
 		}
+
+		// Determine max and min
 		if rel < c.min {
 			c.min = rel
 		}
 		if c.max < rel {
 			c.max = rel
 		}
-		// Add individuals to set for building non-redundant list of individuals
-		c.indvs[i1] = struct{}{}
-		c.indvs[i2] = struct{}{}
 
 		// Set relational distances
 		if dist, err := util.MLRelateToDist(records[i][2]); err == nil {
@@ -77,6 +78,14 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 		} else {
 			log.Errorf("Problem reading ML-Relate R entry: %s", err)
 		}
+
+		// Add individuals to set for building non-redundant list of individuals
+		indvMap[i1] = struct{}{}
+		indvMap[i2] = struct{}{}
+	}
+
+	for indv := range indvMap {
+		c.indvs = append(c.indvs, indv)
 	}
 
 	if normalize {
@@ -90,7 +99,7 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 	return c
 }
 
-func (c *MLRelateCsv) Indvs() map[string]struct{} {
+func (c *MLRelateCsv) Indvs() []string {
 	return c.indvs
 }
 

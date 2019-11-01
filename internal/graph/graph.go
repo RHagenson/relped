@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/rhagenson/relped/internal/csvin"
-	"github.com/rs/xid"
+	"github.com/rhagenson/relped/internal/util"
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
@@ -27,38 +27,35 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph()
 	// Add paths from node to node based on relational distance
-	for i1 := range indvs {
-		for i2 := range indvs {
-			if i1 != i2 {
-				dist := in.RelDistance(i1, i2)
-				if dist <= maxDist {
-					weight := in.Relatedness(i1, i2)
-					g.AddUnknownPath(i1, i2, dist, weight)
-				}
+	for i := 0; i < len(indvs); i++ {
+		for j := i + 1; j < len(indvs); j++ {
+			i1 := indvs[i]
+			i2 := indvs[j]
+			dist := in.RelDistance(i1, i2)
+			if dist <= maxDist {
+				weight := in.Relatedness(i1, i2)
+				g.AddUnknownPath(i1, i2, dist, weight)
 			}
 		}
 	}
 	return g
 }
 
-func (self *Graph) PruneToShortest(indvs map[string]struct{}) *Graph {
+func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
-	for i1 := range indvs {
-		for i2 := range indvs {
-			if i1 == i2 {
-				continue
-			}
-			node1 := self.Node(i1)
-			node2 := self.Node(i2)
+	for i := 0; i < len(indvs); i++ {
+		for j := i + 1; j < len(indvs); j++ {
+			node1 := self.Node(indvs[i])
+			node2 := self.Node(indvs[j])
 			paths := path.YenKShortestPaths(self.g, 2, node1, node2)
-			for i := range paths {
-				names := make([]string, len(paths[i]))
+			for _, path := range paths {
+				names := make([]string, len(path))
 				weights := make([]float64, len(names)-1)
-				for j := range paths[i] {
-					names[j] = self.NameFromID(paths[i][j].ID())
+				for nIdx := range path {
+					names[nIdx] = self.NameFromID(path[nIdx].ID())
 				}
-				for i := 1; i < len(names); i++ {
-					weights[i-1] = self.WeightedEdge(names[i-1], names[i]).Weight()
+				for wIdx := 1; wIdx < len(names); wIdx++ {
+					weights[wIdx-1] = self.WeightedEdge(names[wIdx-1], names[wIdx]).Weight()
 				}
 				g.AddPath(names, weights)
 			}
@@ -175,7 +172,7 @@ func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
 	path[len(path)-1] = n2
 	// Add unknowns
 	for i := 1; i < len(path)-1; i++ {
-		path[i] = xid.New().String()
+		path[i] = util.RandString(10)
 	}
 	weights := make([]float64, len(path)-1)
 	for i := range weights {
