@@ -4,11 +4,13 @@ import (
 	"log"
 
 	"github.com/rhagenson/relped/internal/csvin"
-	"github.com/rhagenson/relped/internal/util"
+	"github.com/rs/xid"
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 )
+
+const lenUnknownNames = 6
 
 // Graph has named nodes/vertexes
 type Graph struct {
@@ -26,6 +28,7 @@ func NewGraph() *Graph {
 func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph()
+
 	// Add paths from node to node based on relational distance
 	for i := 0; i < len(indvs); i++ {
 		for j := i + 1; j < len(indvs); j++ {
@@ -164,15 +167,16 @@ func (self *Graph) AddEqualWeightPath(names []string, weight float64) {
 
 // AddUnknownPath adds a path from n1 through n "unknowns" to n2 distributing the
 // weight accordingly
-func (self *Graph) AddUnknownPath(n1, n2 string, n uint, weight float64) {
-	incWeight := weight / float64(n)
-	path := make([]string, n+2)
+func (self *Graph) AddUnknownPath(n1, n2 string, dist uint, weight float64) {
+	incWeight := weight / float64(dist)
+	path := make([]string, dist+2)
 	// Add knowns
 	path[0] = n1
 	path[len(path)-1] = n2
 	// Add unknowns
 	for i := 1; i < len(path)-1; i++ {
-		path[i] = util.RandString(10)
+		name := xid.New().String()
+		path[i] = name[len(name)-lenUnknownNames:]
 	}
 	weights := make([]float64, len(path)-1)
 	for i := range weights {
