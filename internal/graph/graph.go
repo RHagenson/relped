@@ -47,6 +47,7 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 
 func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
+	fmt.Println(indvs)
 	for i := 0; i < len(indvs); i++ {
 		for j := i + 1; j < len(indvs); j++ {
 			node1 := self.Node(indvs[i])
@@ -137,8 +138,7 @@ func (self *Graph) Node(name string) gonumGraph.Node {
 		fmt.Println(name, node)
 		return node
 	}
-	fmt.Println(name)
-	panic("Node not found")
+	panic(fmt.Sprintf("Node not found: %q", name))
 }
 
 func (self *Graph) Edges() gonumGraph.Edges {
