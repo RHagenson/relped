@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/rhagenson/relped/internal/csvin"
@@ -35,6 +34,8 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 		for j := i + 1; j < len(indvs); j++ {
 			i1 := indvs[i]
 			i2 := indvs[j]
+			g.AddNode(i1)
+			g.AddNode(i2)
 			dist := in.RelDistance(i1, i2)
 			weight := in.Relatedness(i1, i2)
 			if dist <= maxDist {
@@ -47,7 +48,6 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 
 func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
-	fmt.Println(indvs)
 	for i := 0; i < len(indvs); i++ {
 		for j := i + 1; j < len(indvs); j++ {
 			node1 := self.Node(indvs[i])
@@ -114,7 +114,6 @@ func (self *Graph) RemoveNode(name string) {
 
 func (self *Graph) AddNode(name string) {
 	if _, ok := self.m[name]; !ok {
-		fmt.Printf("Adding node: %q\n", name)
 		n := self.g.NewNode()
 		self.g.AddNode(n)
 		self.m[name] = n
@@ -134,11 +133,7 @@ func (self *Graph) WeightedEdge(n1, n2 string) gonumGraph.WeightedEdge {
 }
 
 func (self *Graph) Node(name string) gonumGraph.Node {
-	if node, ok := self.m[name]; ok {
-		fmt.Println(name, node)
-		return node
-	}
-	panic(fmt.Sprintf("Node not found: %q", name))
+	return self.m[name]
 }
 
 func (self *Graph) Edges() gonumGraph.Edges {
