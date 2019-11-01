@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/rhagenson/relped/internal/csvin"
@@ -35,9 +36,9 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 			i1 := indvs[i]
 			i2 := indvs[j]
 			dist := in.RelDistance(i1, i2)
+			weight := in.Relatedness(i1, i2)
 			if dist <= maxDist {
-				weight := in.Relatedness(i1, i2)
-				g.AddUnknownPath(i1, i2, dist, weight)
+				g.AddRelationalPath(i1, i2, dist, weight)
 			}
 		}
 	}
@@ -50,17 +51,21 @@ func (self *Graph) PruneToShortest(indvs []string) *Graph {
 		for j := i + 1; j < len(indvs); j++ {
 			node1 := self.Node(indvs[i])
 			node2 := self.Node(indvs[j])
-			paths := path.YenKShortestPaths(self.g, 2, node1, node2)
-			for _, path := range paths {
-				names := make([]string, len(path))
-				weights := make([]float64, len(names)-1)
-				for nIdx := range path {
-					names[nIdx] = self.NameFromID(path[nIdx].ID())
+			if self.g.HasEdgeBetween(node1.ID(), node2.ID()) { // Directly connected
+				g.AddEqualWeightPath([]string{indvs[i], indvs[j]}, self.WeightedEdge(indvs[i], indvs[j]).Weight())
+			} else { // Perhaps indirectly connected
+				paths := path.YenKShortestPaths(self.g, 2, node1, node2)
+				for _, path := range paths {
+					names := make([]string, len(path))
+					weights := make([]float64, len(names)-1)
+					for nIdx := range path {
+						names[nIdx] = self.NameFromID(path[nIdx].ID())
+					}
+					for wIdx := 1; wIdx < len(names); wIdx++ {
+						weights[wIdx-1] = self.WeightedEdge(names[wIdx-1], names[wIdx]).Weight()
+					}
+					g.AddPath(names, weights)
 				}
-				for wIdx := 1; wIdx < len(names); wIdx++ {
-					weights[wIdx-1] = self.WeightedEdge(names[wIdx-1], names[wIdx]).Weight()
-				}
-				g.AddPath(names, weights)
 			}
 		}
 	}
@@ -108,6 +113,7 @@ func (self *Graph) RemoveNode(name string) {
 
 func (self *Graph) AddNode(name string) {
 	if _, ok := self.m[name]; !ok {
+		fmt.Printf("Adding node: %q\n", name)
 		n := self.g.NewNode()
 		self.g.AddNode(n)
 		self.m[name] = n
@@ -127,7 +133,12 @@ func (self *Graph) WeightedEdge(n1, n2 string) gonumGraph.WeightedEdge {
 }
 
 func (self *Graph) Node(name string) gonumGraph.Node {
-	return self.g.Node(self.m[name].ID())
+	if node, ok := self.m[name]; ok {
+		fmt.Println(name, node)
+		return node
+	}
+	fmt.Println(name)
+	panic("Node not found")
 }
 
 func (self *Graph) Edges() gonumGraph.Edges {
@@ -150,10 +161,10 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 	if len(weights) != len(names)-1 {
 		log.Fatalf("Weights along path should be one less than names along path.")
 	}
-	for i := 1; i < len(names); i++ {
-		self.AddNode(names[i-1])
+	for i := range weights {
 		self.AddNode(names[i])
-		self.NewWeightedEdge(names[i-1], names[i], weights[i-1])
+		self.AddNode(names[i+1])
+		self.NewWeightedEdge(names[i], names[i+1], weights[i])
 	}
 }
 
@@ -165,18 +176,25 @@ func (self *Graph) AddEqualWeightPath(names []string, weight float64) {
 	self.AddPath(names, weights)
 }
 
-// AddUnknownPath adds a path from n1 through n "unknowns" to n2 distributing the
-// weight accordingly
-func (self *Graph) AddUnknownPath(n1, n2 string, dist uint, weight float64) {
+// AddRelationalPath adds a path from n1 to n2 distributing the
+// weight accordingly between dist number of links
+func (self *Graph) AddRelationalPath(n1, n2 string, dist uint, weight float64) {
 	incWeight := weight / float64(dist)
-	path := make([]string, dist+2)
+	// Path length is one fewer than distance
+	// parent-offspring has dist == 1, but are directly linked
+	path := make([]string, dist+2-1)
 	// Add knowns
 	path[0] = n1
 	path[len(path)-1] = n2
-	// Add unknowns
-	for i := 1; i < len(path)-1; i++ {
-		name := xid.New().String()
-		path[i] = name[len(name)-lenUnknownNames:]
+	// Add unknowns if there are any
+	for i := range path {
+		if i == 0 || i == len(path)-1 {
+			continue
+		} else {
+			name := xid.New().String()
+			path[i] = name[len(name)-lenUnknownNames:]
+		}
+
 	}
 	weights := make([]float64, len(path)-1)
 	for i := range weights {
