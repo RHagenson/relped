@@ -50,23 +50,18 @@ func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
 	for i := 0; i < len(indvs); i++ {
 		for j := i + 1; j < len(indvs); j++ {
-			node1 := self.Node(indvs[i])
-			node2 := self.Node(indvs[j])
-			if self.g.HasEdgeBetween(node1.ID(), node2.ID()) { // Directly connected
+			src := self.Node(indvs[i])
+			dest := self.Node(indvs[j])
+			if self.g.HasEdgeBetween(src.ID(), dest.ID()) { // Directly connected
 				g.AddEqualWeightPath([]string{indvs[i], indvs[j]}, self.WeightedEdge(indvs[i], indvs[j]).Weight())
 			} else { // Perhaps indirectly connected
-				paths := path.YenKShortestPaths(self.g, 2, node1, node2)
-				for _, path := range paths {
-					names := make([]string, len(path))
-					weights := make([]float64, len(names)-1)
-					for nIdx := range path {
-						names[nIdx] = self.NameFromID(path[nIdx].ID())
-					}
-					for wIdx := 1; wIdx < len(names); wIdx++ {
-						weights[wIdx-1] = self.WeightedEdge(names[wIdx-1], names[wIdx]).Weight()
-					}
-					g.AddPath(names, weights)
+				shortest, _ := path.BellmanFordFrom(src, self.g)
+				nodes, cost := shortest.To(dest.ID())
+				names := make([]string, len(nodes))
+				for i, node := range nodes {
+					names[i] = self.NameFromID(node.ID())
 				}
+				g.AddEqualWeightPath(names, cost)
 			}
 		}
 	}
