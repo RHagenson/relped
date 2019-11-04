@@ -13,6 +13,8 @@ import (
 const lenUnknownNames = 6
 
 var _ gonumGraph.Graph = new(Graph)
+var _ gonumGraph.Undirected = new(Graph)
+var _ gonumGraph.Weighted = new(Graph)
 
 // Graph has named nodes/vertexes
 type Graph struct {
@@ -49,21 +51,19 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist unit.RelationalDistance) *G
 	return g
 }
 
-func (self *Graph) PruneToShortest(indvs []string) *Graph {
+func (graph *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
 	for i := 0; i < len(indvs); i++ {
-		if src := self.NodeNamed(indvs[i]); src != nil {
-			if shortest, ok := path.BellmanFordFrom(src, self.g); ok {
+		if src := graph.NodeNamed(indvs[i]); src != nil {
+			if shortest, ok := path.BellmanFordFrom(src, graph); ok {
 				for j := i + 1; j < len(indvs); j++ {
-					if dest := self.NodeNamed(indvs[j]); dest != nil {
+					if dest := graph.NodeNamed(indvs[j]); dest != nil {
 						nodes, cost := shortest.To(dest.ID())
 						if len(nodes) != 0 {
 							names := make([]string, len(nodes))
 							for i, node := range nodes {
-								if name, ok := self.IDToName(node.ID()); ok {
+								if name, ok := graph.IDToName(node.ID()); ok {
 									names[i] = name
-								} else {
-									fmt.Printf("Node %q was not found\n", name)
 								}
 							}
 							path := NewFractionalWeightPath(names, unit.Weight(cost))
@@ -77,10 +77,21 @@ func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	return g
 }
 
+func (self *Graph) AddPath(p Path) {
+	names := p.Names()
+	weights := p.Weights()
+
+	for i := range weights {
+		self.AddNodeNamed(names[i])
+		self.AddNodeNamed(names[i+1])
+		self.SetWeightedEdge(self.NewWeightedEdgeNamed(names[i], names[i+1], weights[i]))
+	}
+}
+
 // IDToName converts the id to its corresponding node name
 // Returns false if the node does not exist
-func (self *Graph) IDToName(id int64) (string, bool) {
-	for name, nid := range self.nameToID {
+func (graph *Graph) IDToName(id int64) (string, bool) {
+	for name, nid := range graph.nameToID {
 		if nid == id {
 			return name, true
 		}
@@ -90,134 +101,150 @@ func (self *Graph) IDToName(id int64) (string, bool) {
 
 // NameToID converts the name to its corresponding node ID
 // Returns false if the node does not exist
-func (self *Graph) NameToID(name string) (int64, bool) {
-	id, ok := self.nameToID[name]
+func (graph *Graph) NameToID(name string) (int64, bool) {
+	id, ok := graph.nameToID[name]
 	return id, ok
 }
 
-func (self *Graph) RmDisconnected() {
-	for name := range self.nameToID {
-		nodes := self.FromNamed(name)
+func (graph *Graph) RmDisconnected() {
+	for name := range graph.nameToID {
+		nodes := graph.FromNamed(name)
 		if nodes.Len() == 0 {
-			self.RemoveNodeNamed(name)
+			graph.RemoveNodeNamed(name)
 		}
 	}
 }
 
-func (self *Graph) Weight(xid, yid int64) (w float64, ok bool) {
-	return self.wug.Weight(xid, yid)
+func (graph *Graph) Weight(xid, yid int64) (w float64, ok bool) {
+	return graph.wug.Weight(xid, yid)
 }
 
-func (self *Graph) WeightNamed(n1, n2 string) (w float64, ok bool) {
-	xid := self.nameToID[n1]
-	yid := self.nameToID[n2]
-	return self.Weight(xid, yid)
+func (graph *Graph) WeightNamed(n1, n2 string) (w float64, ok bool) {
+	xid := graph.nameToID[n1]
+	yid := graph.nameToID[n2]
+	return graph.Weight(xid, yid)
 }
 
-func (self *Graph) From(id int64) gonumGraph.Nodes {
-	return self.wug.From(id)
+func (graph *Graph) From(id int64) gonumGraph.Nodes {
+	return graph.wug.From(id)
 }
 
-func (self *Graph) FromNamed(name string) gonumGraph.Nodes {
-	if id, ok := self.nameToID[name]; ok {
-		return self.From(id)
+func (graph *Graph) FromNamed(name string) gonumGraph.Nodes {
+	if id, ok := graph.nameToID[name]; ok {
+		return graph.From(id)
 	}
 	return gonumGraph.Empty
 }
 
-func (self *Graph) RemoveNode(id int64) {
-	self.wug.RemoveNode(id)
+func (graph *Graph) RemoveNode(id int64) {
+	graph.wug.RemoveNode(id)
 }
 
-func (self *Graph) RemoveNodeNamed(name string) {
-	if id, ok := self.nameToID[name]; ok {
-		self.RemoveNode(id)
-		delete(self.nameToID, name)
+func (graph *Graph) RemoveNodeNamed(name string) {
+	if id, ok := graph.nameToID[name]; ok {
+		graph.RemoveNode(id)
+		delete(graph.nameToID, name)
 	}
 }
 
-func (self *Graph) AddNode(n gonumGraph.Node) {
-	self.wug.AddNode(n)
+func (graph *Graph) AddNode(n gonumGraph.Node) {
+	graph.wug.AddNode(n)
 }
 
-func (self *Graph) Nodes() gonumGraph.Nodes {
-	return self.wug.Nodes()
+func (graph *Graph) Nodes() gonumGraph.Nodes {
+	return graph.wug.Nodes()
 }
 
-func (self *Graph) AddNodeNamed(name string) {
-	if _, ok := self.nameToID[name]; !ok {
-		n := self.NewNode()
-		self.AddNode(n)
-		self.nameToID[name] = n.ID()
+func (graph *Graph) AddNodeNamed(name string) {
+	if _, ok := graph.nameToID[name]; !ok {
+		n := graph.NewNode()
+		graph.AddNode(n)
+		graph.nameToID[name] = n.ID()
 	}
 }
 
-func (self *Graph) NewNode() gonumGraph.Node {
-	return self.wug.NewNode()
+func (graph *Graph) NewNode() gonumGraph.Node {
+	return graph.wug.NewNode()
 }
 
-func (self *Graph) Edge(uid, vid int64) gonumGraph.Edge {
-	return self.wug.Edge(uid, vid)
+func (graph *Graph) Edge(uid, vid int64) gonumGraph.Edge {
+	return graph.wug.Edge(uid, vid)
 }
 
-func (self *Graph) EdgeNamed(n1, n2 string) gonumGraph.Edge {
-	uID, _ := self.NameToID(n1)
-	vID, _ := self.NameToID(n2)
-	return self.wug.Edge(uID, vID)
+func (graph *Graph) EdgeNamed(n1, n2 string) gonumGraph.Edge {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.Edge(uID, vID)
 }
 
-func (self *Graph) HasEdgeBetween(xid, yid int64) bool {
-	return self.wug.HasEdgeBetween(xid, yid)
+func (graph *Graph) HasEdgeBetween(xid, yid int64) bool {
+	return graph.wug.HasEdgeBetween(xid, yid)
 }
 
-func (self *Graph) HasEdgeBetweenNamed(n1, n2 string) bool {
-	uID, _ := self.NameToID(n1)
-	vID, _ := self.NameToID(n2)
-	return self.HasEdgeBetween(uID, vID)
+func (graph *Graph) EdgeBetween(xid, yid int64) gonumGraph.Edge {
+	return graph.wug.EdgeBetween(xid, yid)
 }
 
-func (self *Graph) WeightedEdge(uid, vid int64) gonumGraph.WeightedEdge {
-	return self.wug.WeightedEdge(uid, vid)
+func (graph *Graph) EdgeBetweenNamed(n1, n2 string) gonumGraph.Edge {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.EdgeBetween(uID, vID)
 }
 
-func (self *Graph) WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge {
-	uID, uOK := self.NameToID(n1)
-	vID, vOK := self.NameToID(n2)
+func (graph *Graph) HasEdgeBetweenNamed(n1, n2 string) bool {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.HasEdgeBetween(uID, vID)
+}
+
+func (graph *Graph) WeightedEdge(uid, vid int64) gonumGraph.WeightedEdge {
+	return graph.wug.WeightedEdge(uid, vid)
+}
+
+func (graph *Graph) WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge {
+	uID, uOK := graph.NameToID(n1)
+	vID, vOK := graph.NameToID(n2)
 	if uOK && vOK {
-		return self.wug.WeightedEdge(uID, vID)
+		return graph.wug.WeightedEdge(uID, vID)
 	}
 	return nil
 }
 
-func (self *Graph) Node(id int64) gonumGraph.Node {
-	return self.wug.Node(id)
+func (graph *Graph) Node(id int64) gonumGraph.Node {
+	return graph.wug.Node(id)
 }
 
-func (self *Graph) NodeNamed(name string) gonumGraph.Node {
-	if id, ok := self.NameToID(name); ok {
-		return self.wug.Node(id)
+func (graph *Graph) NodeNamed(name string) gonumGraph.Node {
+	if id, ok := graph.NameToID(name); ok {
+		return graph.wug.Node(id)
 	}
 	return gonumGraph.Empty.Node()
 }
 
-func (self *Graph) Edges() gonumGraph.Edges {
-	return self.wug.Edges()
+func (graph *Graph) Edges() gonumGraph.Edges {
+	return graph.wug.Edges()
 }
 
-func (self *Graph) WeightedEdges() gonumGraph.WeightedEdges {
-	return self.wug.WeightedEdges()
+func (graph *Graph) WeightedEdges() gonumGraph.WeightedEdges {
+	return graph.wug.WeightedEdges()
 }
 
-func (self *Graph) NewWeightedEdge(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedEdge {
-	return self.wug.NewWeightedEdge(from, to, weight)
+func (graph *Graph) NewWeightedEdge(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedEdge {
+	return graph.wug.NewWeightedEdge(from, to, weight)
 }
 
-func (self *Graph) NewWeightedEdgeNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedEdge {
-	uID, _ := self.NameToID(n1)
-	vID, _ := self.NameToID(n2)
-	return self.NewWeightedEdge(self.Node(uID), self.Node(vID), float64(weight))
+func (graph *Graph) NewWeightedEdgeNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedEdge {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.NewWeightedEdge(graph.Node(uID), graph.Node(vID), float64(weight))
 }
 
-func (self *Graph) SetWeightedEdge(e gonumGraph.WeightedEdge) {
-	self.wug.SetWeightedEdge(e)
+func (graph *Graph) SetWeightedEdge(e gonumGraph.WeightedEdge) {
+	graph.wug.SetWeightedEdge(e)
+}
+
+func (graph *Graph) String() string {
+	nodes := graph.wug.Nodes()
+	edges := graph.wug.Edges()
+	return fmt.Sprintf("Graph:\n\tNodes(%d):\n\t%v\n\tEdges(%d):\n\t%t\nMap:\n%v\nmap[527]==%n\n", nodes.Len(), nodes, edges.Len(), edges, graph.nameToID, graph.nameToID["527"])
 }

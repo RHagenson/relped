@@ -1,8 +1,6 @@
 package graph
 
 import (
-	"log"
-
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rs/xid"
 )
@@ -10,39 +8,6 @@ import (
 type Path interface {
 	Names() []string
 	Weights() []unit.Weight
-}
-
-var _ Path = new(BasicPath)
-
-type BasicPath struct {
-	names   []string
-	weights []unit.Weight
-}
-
-func (p *BasicPath) Names() []string {
-	return p.names
-}
-
-func (p *BasicPath) Weights() []unit.Weight {
-	return p.weights
-}
-
-func NewBasicPath(names []string, weights []unit.Weight) *BasicPath {
-	if len(weights) != len(names)-1 {
-		log.Fatalf("Weights along path should be one less than names along path.")
-	}
-	return &BasicPath{names, weights}
-}
-
-func (self *Graph) AddPath(p Path) {
-	names := p.Names()
-	weights := p.Weights()
-
-	for i := range weights {
-		self.AddNodeNamed(names[i])
-		self.AddNodeNamed(names[i+1])
-		self.NewWeightedEdgeNamed(names[i], names[i+1], weights[i])
-	}
 }
 
 type EqualWeightPath struct {

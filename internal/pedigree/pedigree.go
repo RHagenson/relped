@@ -50,43 +50,31 @@ func NewPedigree() *Pedigree {
 func NewPedigreeFromGraph(g *graph.Graph, indvs []string) *Pedigree {
 	ped := NewPedigree()
 
-	it := g.WeightedEdges()
-	for {
-		if ok := it.Next(); ok {
-			e := it.WeightedEdge()
-			i1 := g.NameFromID(e.From().ID())
-			i2 := g.NameFromID(e.To().ID())
-			i1Known := stringInSlice(i1, indvs)
-			i2Known := stringInSlice(i2, indvs)
-			if i1Known {
-				ped.AddKnownIndv(i1)
-			} else {
-				ped.AddUnknownIndv(i1)
-			}
-			if i2Known {
-				ped.AddKnownIndv(i2)
-			} else {
-				ped.AddUnknownIndv(i2)
-			}
-			if i1Known && i2Known {
-				ped.AddKnownRel(i1, i2)
-			} else {
-				ped.AddUnknownRel(i1, i2)
-			}
+	iter := g.Edges()
+	for iter.Next() {
+		e := iter.Edge()
+
+		n1, n1OK := g.IDToName(e.From().ID())
+		if n1OK {
+			ped.AddKnownIndv(n1)
 		} else {
-			break
+			ped.AddUnknownIndv(n1)
+		}
+
+		n2, n2OK := g.IDToName(e.To().ID())
+		if n2OK {
+			ped.AddKnownIndv(n2)
+		} else {
+			ped.AddUnknownIndv(n2)
+		}
+
+		if n1OK && n2OK {
+			ped.AddKnownRel(n1, n2)
+		} else {
+			ped.AddUnknownRel(n1, n2)
 		}
 	}
 	return ped
-}
-
-func stringInSlice(str string, list []string) bool {
-	for _, elm := range list {
-		if elm == str {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *Pedigree) AddKnownIndv(node string) error {

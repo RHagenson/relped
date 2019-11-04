@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/rhagenson/relped/internal/csvin"
@@ -26,7 +27,6 @@ var (
 var (
 	opNormalize         = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
 	opHelp              = pflag.Bool("help", false, "Print help and exit")
-	opKeepUnrelated     = pflag.Bool("keep-unrelated", false, "Keep disconnect/unrelated individuals in pedigree")
 	opMaxRelationalDist = pflag.Uint("max-distance", maxdist, "Max relational distance to incorporate.")
 	cpuprofile          = flag.String("cpuprofile", "", "write cpu profile to file")
 )
@@ -82,16 +82,12 @@ func main() {
 			log.Fatalf("Could not read input file: %s\n", err)
 		}
 		input := csvin.NewThreeColumnCsv(in, *opNormalize)
-		indvs := input.Indvs()
 
 		// Build graph
 		g := graph.NewGraphFromCsvInput(input, unit.RelationalDistance(*opMaxRelationalDist))
 
-		// Remove disconnected individuals
-		if !*opKeepUnrelated {
-			g.RmDisconnected()
-		}
 		// Prune edges to only the shortest between two knowns
+		indvs := input.Indvs()
 		g = g.PruneToShortest(indvs)
 
 		// Write the outout
@@ -110,17 +106,16 @@ func main() {
 		}
 
 		input := csvin.NewMLRelateCsv(in, *opNormalize)
-		indvs := input.Indvs()
 
 		// Build graph
 		g := graph.NewGraphFromCsvInput(input, unit.RelationalDistance(*opMaxRelationalDist))
 
-		// Remove disconnected individuals
-		if !*opKeepUnrelated {
-			g.RmDisconnected()
-		}
+		fmt.Println(g.String())
+
 		// Prune edges to only the shortest between two knowns
+		indvs := input.Indvs()
 		g = g.PruneToShortest(indvs)
+		fmt.Println(g.String())
 
 		// Write the outout
 		ped := pedigree.NewPedigreeFromGraph(g, indvs)
