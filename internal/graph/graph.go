@@ -49,19 +49,18 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
 	for i := 0; i < len(indvs); i++ {
-		for j := i + 1; j < len(indvs); j++ {
-			src := self.Node(indvs[i])
-			dest := self.Node(indvs[j])
-			if self.g.HasEdgeBetween(src.ID(), dest.ID()) { // Directly connected
-				g.AddEqualWeightPath([]string{indvs[i], indvs[j]}, self.WeightedEdge(indvs[i], indvs[j]).Weight())
-			} else { // Perhaps indirectly connected
-				shortest, _ := path.BellmanFordFrom(src, self.g)
+		src := self.Node(indvs[i])
+		if shortest, ok := path.BellmanFordFrom(src, self.g); ok {
+			for j := i + 1; j < len(indvs); j++ {
+				dest := self.Node(indvs[j])
 				nodes, cost := shortest.To(dest.ID())
-				names := make([]string, len(nodes))
-				for i, node := range nodes {
-					names[i] = self.NameFromID(node.ID())
+				if len(nodes) != 0 {
+					names := make([]string, len(nodes))
+					for i, node := range nodes {
+						names[i] = self.NameFromID(node.ID())
+					}
+					g.AddFractionalWeightPath(names, cost)
 				}
-				g.AddEqualWeightPath(names, cost)
 			}
 		}
 	}
@@ -166,10 +165,18 @@ func (self *Graph) AddEqualWeightPath(names []string, weight float64) {
 	self.AddPath(names, weights)
 }
 
+func (self *Graph) AddFractionalWeightPath(names []string, weight float64) {
+	weights := make([]float64, len(names)-1)
+	incWeight := weight / float64(len(weights))
+	for i := range weights {
+		weights[i] = incWeight
+	}
+	self.AddPath(names, weights)
+}
+
 // AddRelationalPath adds a path from n1 to n2 distributing the
 // weight accordingly between dist number of links
 func (self *Graph) AddRelationalPath(n1, n2 string, dist uint, weight float64) {
-	incWeight := weight / float64(dist)
 	// Path length is one fewer than distance
 	// parent-offspring has dist == 1, but are directly linked
 	path := make([]string, dist+2-1)
@@ -187,6 +194,7 @@ func (self *Graph) AddRelationalPath(n1, n2 string, dist uint, weight float64) {
 
 	}
 	weights := make([]float64, len(path)-1)
+	incWeight := weight / float64(len(weights))
 	for i := range weights {
 		weights[i] = incWeight
 	}
