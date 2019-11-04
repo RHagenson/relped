@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/rhagenson/relped/internal/csvin"
+	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rs/xid"
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -14,18 +15,18 @@ const lenUnknownNames = 6
 
 // Graph has named nodes/vertexes
 type Graph struct {
-	g *simple.WeightedUndirectedGraph
-	m map[string]gonumGraph.Node
+	g     *simple.WeightedUndirectedGraph
+	nodes map[string]gonumGraph.Node
 }
 
 func NewGraph() *Graph {
 	return &Graph{
-		g: simple.NewWeightedUndirectedGraph(0, 0),
-		m: make(map[string]gonumGraph.Node),
+		g:     simple.NewWeightedUndirectedGraph(0, 0),
+		nodes: make(map[string]gonumGraph.Node),
 	}
 }
 
-func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
+func NewGraphFromCsvInput(in csvin.CsvInput, maxDist unit.RelationalDistance) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph()
 
@@ -36,10 +37,10 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 			i2 := indvs[j]
 			g.AddNode(i1)
 			g.AddNode(i2)
-			dist := in.RelDistance(i1, i2)
-			weight := in.Relatedness(i1, i2)
-			if dist <= maxDist {
-				g.AddRelationalPath(i1, i2, dist, weight)
+			graphdist := in.RelDistance(i1, i2).GraphDistance()
+			relatedness := in.Relatedness(i1, i2)
+			if graphdist <= maxDist.GraphDistance() {
+				g.AddRelationalPath(i1, i2, graphdist, relatedness.Weight())
 			}
 		}
 	}
@@ -49,17 +50,19 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist uint) *Graph {
 func (self *Graph) PruneToShortest(indvs []string) *Graph {
 	g := NewGraph()
 	for i := 0; i < len(indvs); i++ {
-		src := self.Node(indvs[i])
-		if shortest, ok := path.BellmanFordFrom(src, self.g); ok {
-			for j := i + 1; j < len(indvs); j++ {
-				dest := self.Node(indvs[j])
-				nodes, cost := shortest.To(dest.ID())
-				if len(nodes) != 0 {
-					names := make([]string, len(nodes))
-					for i, node := range nodes {
-						names[i] = self.NameFromID(node.ID())
+		if src := self.Node(indvs[i]); src != nil {
+			if shortest, ok := path.BellmanFordFrom(src, self.g); ok {
+				for j := i + 1; j < len(indvs); j++ {
+					if dest := self.Node(indvs[j]); dest != nil {
+						nodes, cost := shortest.To(dest.ID())
+						if len(nodes) != 0 {
+							names := make([]string, len(nodes))
+							for i, node := range nodes {
+								names[i] = self.NameFromID(node.ID())
+							}
+							g.AddFractionalWeightPath(names, unit.Weight(cost))
+						}
 					}
-					g.AddFractionalWeightPath(names, cost)
 				}
 			}
 		}
@@ -72,7 +75,7 @@ func (self *Graph) Nodes() gonumGraph.Nodes {
 }
 
 func (self *Graph) NameFromID(id int64) string {
-	for name, node := range self.m {
+	for name, node := range self.nodes {
 		if node.ID() == id {
 			return name
 		}
@@ -81,7 +84,7 @@ func (self *Graph) NameFromID(id int64) string {
 }
 
 func (self *Graph) RmDisconnected() {
-	for name := range self.m {
+	for name := range self.nodes {
 		nodes := self.From(name)
 		if nodes.Len() == 0 {
 			self.RemoveNode(name)
@@ -89,45 +92,46 @@ func (self *Graph) RmDisconnected() {
 	}
 }
 
-func (self *Graph) Weight(xid, yid int64) (w float64, ok bool) {
-	return self.g.Weight(xid, yid)
+func (self *Graph) Weight(xid, yid int64) (w unit.Weight, ok bool) {
+	weight, ok := self.g.Weight(xid, yid)
+	return unit.Weight(weight), ok
 }
 
 func (self *Graph) From(name string) gonumGraph.Nodes {
-	if node, ok := self.m[name]; ok {
+	if node, ok := self.nodes[name]; ok {
 		return self.g.From(node.ID())
 	}
 	return nil
 }
 
 func (self *Graph) RemoveNode(name string) {
-	if node, ok := self.m[name]; ok {
+	if node, ok := self.nodes[name]; ok {
 		self.g.RemoveNode(node.ID())
 	}
 }
 
 func (self *Graph) AddNode(name string) {
-	if _, ok := self.m[name]; !ok {
+	if _, ok := self.nodes[name]; !ok {
 		n := self.g.NewNode()
 		self.g.AddNode(n)
-		self.m[name] = n
+		self.nodes[name] = n
 	}
 }
 
 func (self *Graph) Edge(n1, n2 string) gonumGraph.Edge {
-	uid := self.m[n1].ID()
-	vid := self.m[n2].ID()
+	uid := self.nodes[n1].ID()
+	vid := self.nodes[n2].ID()
 	return self.g.Edge(uid, vid)
 }
 
 func (self *Graph) WeightedEdge(n1, n2 string) gonumGraph.WeightedEdge {
-	uid := self.m[n1].ID()
-	vid := self.m[n2].ID()
+	uid := self.nodes[n1].ID()
+	vid := self.nodes[n2].ID()
 	return self.g.WeightedEdge(uid, vid)
 }
 
 func (self *Graph) Node(name string) gonumGraph.Node {
-	return self.m[name]
+	return self.nodes[name]
 }
 
 func (self *Graph) Edges() gonumGraph.Edges {
@@ -138,15 +142,15 @@ func (self *Graph) WeightedEdges() gonumGraph.WeightedEdges {
 	return self.g.WeightedEdges()
 }
 
-func (self *Graph) NewWeightedEdge(n1, n2 string, weight float64) gonumGraph.WeightedEdge {
-	uid := self.m[n1]
-	vid := self.m[n2]
-	e := self.g.NewWeightedEdge(uid, vid, weight)
+func (self *Graph) NewWeightedEdge(n1, n2 string, weight unit.Weight) gonumGraph.WeightedEdge {
+	uid := self.nodes[n1]
+	vid := self.nodes[n2]
+	e := self.g.NewWeightedEdge(uid, vid, float64(weight))
 	self.g.SetWeightedEdge(e)
 	return e
 }
 
-func (self *Graph) AddPath(names []string, weights []float64) {
+func (self *Graph) AddPath(names []string, weights []unit.Weight) {
 	if len(weights) != len(names)-1 {
 		log.Fatalf("Weights along path should be one less than names along path.")
 	}
@@ -157,29 +161,26 @@ func (self *Graph) AddPath(names []string, weights []float64) {
 	}
 }
 
-func (self *Graph) AddEqualWeightPath(names []string, weight float64) {
-	weights := make([]float64, len(names)-1)
+func (self *Graph) AddEqualWeightPath(names []string, weight unit.Weight) {
+	weights := make([]unit.Weight, len(names)-1)
 	for i := range weights {
 		weights[i] = weight
 	}
 	self.AddPath(names, weights)
 }
 
-func (self *Graph) AddFractionalWeightPath(names []string, weight float64) {
-	weights := make([]float64, len(names)-1)
-	incWeight := weight / float64(len(weights))
+func (self *Graph) AddFractionalWeightPath(names []string, weight unit.Weight) {
+	weights := make([]unit.Weight, len(names)-1)
+	incWeight := float64(weight) / float64(len(weights))
 	for i := range weights {
-		weights[i] = incWeight
+		weights[i] = unit.Weight(incWeight)
 	}
 	self.AddPath(names, weights)
 }
 
-// AddRelationalPath adds a path from n1 to n2 distributing the
-// weight accordingly between dist number of links
-func (self *Graph) AddRelationalPath(n1, n2 string, dist uint, weight float64) {
-	// Path length is one fewer than distance
-	// parent-offspring has dist == 1, but are directly linked
-	path := make([]string, dist+2-1)
+// AddRelationalPath adds a path from n1 to n2 with dist unknowns separating them
+func (self *Graph) AddRelationalPath(n1, n2 string, dist unit.GraphDistance, weight unit.Weight) {
+	path := make([]string, dist+2)
 	// Add knowns
 	path[0] = n1
 	path[len(path)-1] = n2
@@ -193,10 +194,10 @@ func (self *Graph) AddRelationalPath(n1, n2 string, dist uint, weight float64) {
 		}
 
 	}
-	weights := make([]float64, len(path)-1)
-	incWeight := weight / float64(len(weights))
+	weights := make([]unit.Weight, len(path)-1)
+	incWeight := float64(weight) / float64(len(weights))
 	for i := range weights {
-		weights[i] = incWeight
+		weights[i] = unit.Weight(incWeight)
 	}
 	self.AddPath(path, weights)
 }

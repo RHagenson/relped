@@ -1,6 +1,10 @@
 package util
 
-import "math"
+import (
+	"math"
+
+	"github.com/rhagenson/relped/internal/unit"
+)
 
 // RelToLevel computes the relational distance given the relatedness score
 //
@@ -9,9 +13,9 @@ import "math"
 //     relToLevel(0.25)  --> 2
 //     relToLevel(0.125) --> 3
 //     relToLevel(<=0)   --> 0  // Only "unrelated" case
-func RelToLevel(x float64) uint {
+func RelToLevel(x float64) unit.RelationalDistance {
 	if x <= 0 {
 		return 0
 	}
-	return uint(math.Round(math.Log(1/x) / math.Log(2)))
+	return unit.RelationalDistance(uint(math.Round(math.Log(1/x) / math.Log(2))))
 }

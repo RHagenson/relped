@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/util"
 	log "github.com/sirupsen/logrus"
 )
@@ -103,10 +104,10 @@ func (c *MLRelateCsv) Indvs() []string {
 	return c.indvs
 }
 
-func (c *MLRelateCsv) Relatedness(i1, i2 string) float64 {
-	return c.rels[i1][i2]
+func (c *MLRelateCsv) Relatedness(i1, i2 string) unit.Relatedness {
+	return unit.Relatedness(c.rels[i1][i2])
 }
 
-func (c *MLRelateCsv) RelDistance(i1, i2 string) uint {
-	return c.dists[i1][i2]
+func (c *MLRelateCsv) RelDistance(i1, i2 string) unit.RelationalDistance {
+	return unit.RelationalDistance(c.dists[i1][i2])
 }
