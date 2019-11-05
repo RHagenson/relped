@@ -1,15 +1,16 @@
 package unit
 
-type RelationalDistance uint
-type GraphDistance uint
+type RelationalDegree uint
 
-func (r RelationalDistance) GraphDistance() GraphDistance {
-	if r == 0 {
-		return 0
-	}
-	return GraphDistance(r - 1)
-}
-
-func (r GraphDistance) RelationalDistance() RelationalDistance {
-	return RelationalDistance(r + 1)
-}
+const (
+	Zeroth RelationalDegree = iota
+	First
+	Second
+	Third
+	Fourth
+	Fifth
+	Sixth
+	Seventh
+	Eighth
+	Ninth // Maximum estimatable relational distance accroding to [@doi:10.1016/j.ajhg.2016.05.020]
+)
