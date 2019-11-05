@@ -6,8 +6,8 @@ import (
 	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rhagenson/relped/internal/unit"
 	gonumGraph "gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/path"
-	"gonum.org/v1/gonum/graph/simple"
 )
 
 const lenUnknownNames = 6
@@ -18,14 +18,14 @@ var _ gonumGraph.Weighted = new(Graph)
 
 // Graph has named nodes/vertexes
 type Graph struct {
-	wug      *simple.WeightedUndirectedGraph
+	wug      *multi.WeightedUndirectedGraph
 	nameToID map[string]int64
 }
 
 func NewGraph() *Graph {
 	return &Graph{
-		simple.NewWeightedUndirectedGraph(0, 0),
-		make(map[string]int64),
+		wug:      multi.NewWeightedUndirectedGraph(),
+		nameToID: make(map[string]int64),
 	}
 }
 
@@ -84,7 +84,7 @@ func (self *Graph) AddPath(p Path) {
 	for i := range weights {
 		self.AddNodeNamed(names[i])
 		self.AddNodeNamed(names[i+1])
-		self.SetWeightedEdge(self.NewWeightedEdgeNamed(names[i], names[i+1], weights[i]))
+		self.SetWeightedLine(self.NewWeightedLineNamed(names[i], names[i+1], weights[i]))
 	}
 }
 
@@ -229,18 +229,18 @@ func (graph *Graph) WeightedEdges() gonumGraph.WeightedEdges {
 	return graph.wug.WeightedEdges()
 }
 
-func (graph *Graph) NewWeightedEdge(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedEdge {
-	return graph.wug.NewWeightedEdge(from, to, weight)
+func (graph *Graph) NewWeightedLine(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedLine {
+	return graph.wug.NewWeightedLine(from, to, weight)
 }
 
-func (graph *Graph) NewWeightedEdgeNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedEdge {
+func (graph *Graph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine {
 	uID, _ := graph.NameToID(n1)
 	vID, _ := graph.NameToID(n2)
-	return graph.NewWeightedEdge(graph.Node(uID), graph.Node(vID), float64(weight))
+	return graph.NewWeightedLine(graph.Node(uID), graph.Node(vID), float64(weight))
 }
 
-func (graph *Graph) SetWeightedEdge(e gonumGraph.WeightedEdge) {
-	graph.wug.SetWeightedEdge(e)
+func (graph *Graph) SetWeightedLine(e gonumGraph.WeightedLine) {
+	graph.wug.SetWeightedLine(e)
 }
 
 func (graph *Graph) String() string {
