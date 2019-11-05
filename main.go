@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/rhagenson/relped/internal/csvin"
@@ -106,16 +105,13 @@ func main() {
 		}
 
 		input := csvin.NewMLRelateCsv(in, *opNormalize)
+		indvs := input.Indvs()
 
 		// Build graph
 		g := graph.NewGraphFromCsvInput(input, unit.RelationalDistance(*opMaxRelationalDist))
 
-		fmt.Println(g.String())
-
 		// Prune edges to only the shortest between two knowns
-		indvs := input.Indvs()
 		g = g.PruneToShortest(indvs)
-		fmt.Println(g.String())
 
 		// Write the outout
 		ped := pedigree.NewPedigreeFromGraph(g, indvs)

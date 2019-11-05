@@ -33,19 +33,40 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist unit.RelationalDistance) *G
 	indvs := in.Indvs()
 	g := NewGraph()
 
+	for i := range indvs {
+		for j := range indvs {
+			if i == j {
+				continue
+			} else {
+				from := indvs[i]
+				to := indvs[j]
+				graphdist := in.RelDistance(from, to).GraphDistance()
+				fmt.Println(graphdist)
+				relatedness := in.Relatedness(from, to)
+				if graphdist <= maxDist.GraphDistance() {
+					path := NewRelationalWeightPath(from, to, graphdist, relatedness.Weight())
+					g.AddPath(path)
+				}
+			}
+		}
+	}
 	// Add paths from node to node based on relational distance
 	for i := 0; i < len(indvs); i++ {
 		for j := i + 1; j < len(indvs); j++ {
 			i1 := indvs[i]
 			i2 := indvs[j]
-			g.AddNodeNamed(i1)
-			g.AddNodeNamed(i2)
 			graphdist := in.RelDistance(i1, i2).GraphDistance()
 			relatedness := in.Relatedness(i1, i2)
-			if graphdist <= maxDist.GraphDistance() {
-				path := NewRelationalWeightPath(i1, i2, graphdist, relatedness.Weight())
-				g.AddPath(path)
+			switch graphdist {
+			case 0:
+				g.AddNodeNamed(i1)
+				g.AddNodeNamed(i2)
+				g.SetWeightedLine(g.NewWeightedLineNamed(i1, i2, relatedness.Weight()))
 			}
+			// if graphdist <= maxDist.GraphDistance() {
+			// 	path := NewRelationalWeightPath(i1, i2, graphdist, relatedness.Weight())
+			// 	g.AddPath(path)
+			// }
 		}
 	}
 	return g
@@ -82,9 +103,12 @@ func (self *Graph) AddPath(p Path) {
 	weights := p.Weights()
 
 	for i := range weights {
-		self.AddNodeNamed(names[i])
-		self.AddNodeNamed(names[i+1])
-		self.SetWeightedLine(self.NewWeightedLineNamed(names[i], names[i+1], weights[i]))
+		from := names[i]
+		to := names[i+1]
+		weight := weights[i]
+		self.AddNodeNamed(from)
+		self.AddNodeNamed(to)
+		self.SetWeightedLine(self.NewWeightedLineNamed(from, to, weight))
 	}
 }
 

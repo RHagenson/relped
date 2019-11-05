@@ -13,8 +13,8 @@ import (
 var _ CsvInput = new(MLRelateCsv)
 
 type MLRelateCsv struct {
-	rels     map[string]map[string]float64
-	dists    map[string]map[string]uint
+	rels     map[string]map[string]unit.Relatedness
+	dists    map[string]map[string]unit.RelationalDistance
 	indvs    []string
 	min, max float64
 }
@@ -31,8 +31,8 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 	records = util.RmHeader(records)
 
 	c := &MLRelateCsv{
-		rels:  make(map[string]map[string]float64, len(records)),
-		dists: make(map[string]map[string]uint, len(records)),
+		rels:  make(map[string]map[string]unit.Relatedness, len(records)),
+		dists: make(map[string]map[string]unit.RelationalDistance, len(records)),
 		indvs: make([]string, 0, len(records)),
 		min:   0,
 		max:   1,
@@ -41,8 +41,8 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 	indvMap := make(map[string]struct{}, len(records))
 
 	for i := range records {
-		i1 := records[i][0]
-		i2 := records[i][1]
+		from := records[i][0]
+		to := records[i][1]
 		rel := 0.0
 
 		// Set relatedness value
@@ -53,11 +53,11 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 				rel = val
 			}
 		}
-		if _, ok := c.rels[i1]; ok {
-			c.rels[i1][i2] = rel
+		if _, ok := c.rels[from]; ok {
+			c.rels[from][to] = unit.Relatedness(rel)
 		} else {
-			c.rels[i1] = make(map[string]float64, len(records))
-			c.rels[i1][i2] = rel
+			c.rels[from] = make(map[string]unit.Relatedness, len(records))
+			c.rels[from][to] = unit.Relatedness(rel)
 		}
 
 		// Determine max and min
@@ -70,19 +70,19 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 
 		// Set relational distances
 		if dist, err := util.MLRelateToDist(records[i][2]); err == nil {
-			if _, ok := c.dists[i1]; ok {
-				c.dists[i1][i2] = dist
+			if _, ok := c.dists[from]; ok {
+				c.dists[from][to] = unit.RelationalDistance(dist)
 			} else {
-				c.dists[i1] = make(map[string]uint, len(records))
-				c.dists[i1][i2] = dist
+				c.dists[from] = make(map[string]unit.RelationalDistance, len(records))
+				c.dists[from][to] = unit.RelationalDistance(dist)
 			}
 		} else {
 			log.Errorf("Problem reading ML-Relate R entry: %s", err)
 		}
 
 		// Add individuals to set for building non-redundant list of individuals
-		indvMap[i1] = struct{}{}
-		indvMap[i2] = struct{}{}
+		indvMap[from] = struct{}{}
+		indvMap[to] = struct{}{}
 	}
 
 	for indv := range indvMap {
@@ -90,9 +90,9 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 	}
 
 	if normalize {
-		for i1, m := range c.rels {
-			for i2, rel := range m {
-				c.rels[i1][i2] = (rel - c.min) / (c.max - c.min)
+		for from, m := range c.rels {
+			for to, rel := range m {
+				c.rels[from][to] = unit.Relatedness((float64(rel) - c.min) / (c.max - c.min))
 			}
 		}
 	}
@@ -104,10 +104,30 @@ func (c *MLRelateCsv) Indvs() []string {
 	return c.indvs
 }
 
-func (c *MLRelateCsv) Relatedness(i1, i2 string) unit.Relatedness {
-	return unit.Relatedness(c.rels[i1][i2])
+func (c *MLRelateCsv) Relatedness(from, to string) unit.Relatedness {
+	if innerRels, ok := c.rels[from]; ok {
+		if val, ok := innerRels[to]; ok {
+			return unit.Relatedness(val)
+		}
+	}
+	if innerRels, ok := c.rels[to]; ok {
+		if val, ok := innerRels[from]; ok {
+			return unit.Relatedness(val)
+		}
+	}
+	return unit.Relatedness(0)
 }
 
-func (c *MLRelateCsv) RelDistance(i1, i2 string) unit.RelationalDistance {
-	return unit.RelationalDistance(c.dists[i1][i2])
+func (c *MLRelateCsv) RelDistance(from, to string) unit.RelationalDistance {
+	if innerRels, ok := c.rels[from]; ok {
+		if val, ok := innerRels[to]; ok {
+			return unit.RelationalDistance(val)
+		}
+	}
+	if innerRels, ok := c.rels[to]; ok {
+		if val, ok := innerRels[from]; ok {
+			return unit.RelationalDistance(val)
+		}
+	}
+	return unit.RelationalDistance(0)
 }
