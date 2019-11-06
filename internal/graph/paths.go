@@ -1,7 +1,10 @@
 package graph
 
 import (
+	"fmt"
+
 	"github.com/rhagenson/relped/internal/unit"
+	"github.com/rhagenson/relped/internal/unit/relational"
 	"github.com/rs/xid"
 )
 
@@ -65,12 +68,14 @@ func (p RelationalWeightPath) Weights() []unit.Weight {
 	return p.p.Weights()
 }
 
-func NewRelationalWeightPath(n1, n2 string, dist unit.GraphDistance, weight unit.Weight) *RelationalWeightPath {
-	names := make([]string, dist+2)
+func NewRelationalWeightPath(from, to string, dist relational.Degree, weight unit.Weight) (*RelationalWeightPath, error) {
+	if dist == relational.Unrelated {
+		return nil, fmt.Errorf("%q and %q are unrelated, no path possible", from, to)
+	}
+	names := make([]string, dist+1)
 	// Add knowns
-	names[0] = n1
-	names[len(names)-1] = n2
-
+	names[0] = from
+	names[len(names)-1] = to
 	for i := range names {
 		if i == 0 || i == len(names)-1 {
 			continue
@@ -79,5 +84,5 @@ func NewRelationalWeightPath(n1, n2 string, dist unit.GraphDistance, weight unit
 			names[i] = name[len(name)-lenUnknownNames:]
 		}
 	}
-	return &RelationalWeightPath{&FractionalWeightPath{names, weight}}
+	return &RelationalWeightPath{&FractionalWeightPath{names, weight}}, nil
 }

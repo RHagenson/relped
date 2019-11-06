@@ -54,24 +54,26 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string) *Pedigree {
 	for iter.Next() {
 		e := iter.Edge()
 
-		n1, n1OK := g.IDToName(e.From().ID())
-		if n1OK {
-			ped.AddKnownIndv(n1)
+		from, _ := g.IDToName(e.From().ID())
+		to, _ := g.IDToName(e.To().ID())
+		fromKnown := g.IsKnown(from)
+		toKnown := g.IsKnown(to)
+		if fromKnown {
+			ped.AddKnownIndv(from)
 		} else {
-			ped.AddUnknownIndv(n1)
+			ped.AddUnknownIndv(from)
 		}
 
-		n2, n2OK := g.IDToName(e.To().ID())
-		if n2OK {
-			ped.AddKnownIndv(n2)
+		if toKnown {
+			ped.AddKnownIndv(to)
 		} else {
-			ped.AddUnknownIndv(n2)
+			ped.AddUnknownIndv(to)
 		}
 
-		if n1OK && n2OK {
-			ped.AddKnownRel(n1, n2)
+		if fromKnown && toKnown {
+			ped.AddKnownRel(from, to)
 		} else {
-			ped.AddUnknownRel(n1, n2)
+			ped.AddUnknownRel(from, to)
 		}
 	}
 	return ped

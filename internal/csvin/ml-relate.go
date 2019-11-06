@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/rhagenson/relped/internal/unit"
+	"github.com/rhagenson/relped/internal/unit/relational"
 	"github.com/rhagenson/relped/internal/util"
 	log "github.com/sirupsen/logrus"
 )
@@ -14,7 +15,7 @@ var _ CsvInput = new(MLRelateCsv)
 
 type MLRelateCsv struct {
 	rels     map[string]map[string]unit.Relatedness
-	dists    map[string]map[string]unit.RelationalDistance
+	dists    map[string]map[string]relational.Degree
 	indvs    []string
 	min, max float64
 }
@@ -32,7 +33,7 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 
 	c := &MLRelateCsv{
 		rels:  make(map[string]map[string]unit.Relatedness, len(records)),
-		dists: make(map[string]map[string]unit.RelationalDistance, len(records)),
+		dists: make(map[string]map[string]relational.Degree, len(records)),
 		indvs: make([]string, 0, len(records)),
 		min:   0,
 		max:   1,
@@ -69,15 +70,11 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 		}
 
 		// Set relational distances
-		if dist, err := util.MLRelateToDist(records[i][2]); err == nil {
-			if _, ok := c.dists[from]; ok {
-				c.dists[from][to] = unit.RelationalDistance(dist)
-			} else {
-				c.dists[from] = make(map[string]unit.RelationalDistance, len(records))
-				c.dists[from][to] = unit.RelationalDistance(dist)
-			}
+		if _, ok := c.dists[from]; ok {
+			c.dists[from][to] = util.MLRelateToDist(records[i][2])
 		} else {
-			log.Errorf("Problem reading ML-Relate R entry: %s", err)
+			c.dists[from] = make(map[string]relational.Degree, len(records))
+			c.dists[from][to] = util.MLRelateToDist(records[i][2])
 		}
 
 		// Add individuals to set for building non-redundant list of individuals
@@ -118,16 +115,16 @@ func (c *MLRelateCsv) Relatedness(from, to string) unit.Relatedness {
 	return unit.Relatedness(0)
 }
 
-func (c *MLRelateCsv) RelDistance(from, to string) unit.RelationalDistance {
-	if innerRels, ok := c.rels[from]; ok {
+func (c *MLRelateCsv) RelDistance(from, to string) relational.Degree {
+	if innerRels, ok := c.dists[from]; ok {
 		if val, ok := innerRels[to]; ok {
-			return unit.RelationalDistance(val)
+			return val
 		}
 	}
-	if innerRels, ok := c.rels[to]; ok {
+	if innerRels, ok := c.dists[to]; ok {
 		if val, ok := innerRels[from]; ok {
-			return unit.RelationalDistance(val)
+			return val
 		}
 	}
-	return unit.RelationalDistance(0)
+	return relational.Unrelated
 }

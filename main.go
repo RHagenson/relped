@@ -7,13 +7,12 @@ import (
 	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/pedigree"
-	"github.com/rhagenson/relped/internal/unit"
+	"github.com/rhagenson/relped/internal/unit/relational"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
 
-// The maximum estimatable relational distance accroding to [@doi:10.1016/j.ajhg.2016.05.020]
-const maxdist = 9
+var maxDist = relational.Ninth
 
 // Required flags
 var (
@@ -24,10 +23,10 @@ var (
 
 // General use flags
 var (
-	opNormalize         = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
-	opHelp              = pflag.Bool("help", false, "Print help and exit")
-	opMaxRelationalDist = pflag.Uint("max-distance", maxdist, "Max relational distance to incorporate.")
-	cpuprofile          = flag.String("cpuprofile", "", "write cpu profile to file")
+	opNormalize   = pflag.Bool("normalize", false, "Normalize relatedness to [0,1]-bounded")
+	opHelp        = pflag.Bool("help", false, "Print help and exit")
+	opMaxDistance = pflag.Uint("max-distance", uint(relational.Ninth), "Max relational distance to incorporate.")
+	cpuprofile    = flag.String("cpuprofile", "", "write cpu profile to file")
 )
 
 // setup runs the CLI initialization prior to program logic
@@ -40,18 +39,19 @@ func setup() {
 
 	// Information states
 	switch {
-	case *fMLRelate != "" && *opMaxRelationalDist == maxdist:
-		const maxMLDist = 3 // ML-Relate does not handle relationships beyond distance of 3 (i.e.: PO, FS, HS)
-		*opMaxRelationalDist = maxMLDist
-		log.Infof("Setting --max-distance=%d\n", maxMLDist)
+	case *fMLRelate != "" && *opMaxDistance == uint(maxDist):
+		// ML-Relate does not handle relationships beyond distance of 3 (i.e.: PO, FS, HS)
+		maxDist = relational.Third
+		*opMaxDistance = uint(maxDist)
+		log.Infof("Setting --max-distance=%d\n", maxDist)
 	}
 
 	// Warning states
 	switch {
 	case *fMLRelate != "" && *opNormalize:
 		log.Warnf("Normalizing relatedness scores with ML-Relate input has no effect.\n")
-	case maxdist < *opMaxRelationalDist:
-		log.Warnf("Estimating relational distance beyond %d is ill-advised.", maxdist)
+	case uint(maxDist) < *opMaxDistance:
+		log.Warnf("Estimating relational distance beyond %d is ill-advised.", maxDist)
 	}
 
 	// Failure states
@@ -62,8 +62,8 @@ func setup() {
 	case *fThreeColumn == "" && *fMLRelate == "":
 		pflag.Usage()
 		log.Fatalf("One of --input or --ml-relate is required.\n")
-	case *fMLRelate != "" && 3 < *opMaxRelationalDist:
-		log.Fatalf("ML-Relate does not handle distance > 3, set --max-distance <= 3. Set at: %d\n", *opMaxRelationalDist)
+	case *fMLRelate != "" && 3 < *opMaxDistance:
+		log.Fatalf("ML-Relate does not handle distance > 3, set --max-distance <= 3. Set at: %d\n", *opMaxDistance)
 	}
 }
 
@@ -83,7 +83,7 @@ func main() {
 		input := csvin.NewThreeColumnCsv(in, *opNormalize)
 
 		// Build graph
-		g := graph.NewGraphFromCsvInput(input, unit.RelationalDistance(*opMaxRelationalDist))
+		g := graph.NewGraphFromCsvInput(input, maxDist)
 
 		// Prune edges to only the shortest between two knowns
 		indvs := input.Indvs()
@@ -108,7 +108,7 @@ func main() {
 		indvs := input.Indvs()
 
 		// Build graph
-		g := graph.NewGraphFromCsvInput(input, unit.RelationalDistance(*opMaxRelationalDist))
+		g := graph.NewGraphFromCsvInput(input, maxDist)
 
 		// Prune edges to only the shortest between two knowns
 		g = g.PruneToShortest(indvs)

@@ -5,6 +5,7 @@ import (
 
 	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rhagenson/relped/internal/unit"
+	"github.com/rhagenson/relped/internal/unit/relational"
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/path"
@@ -20,18 +21,20 @@ var _ gonumGraph.Weighted = new(Graph)
 type Graph struct {
 	wug      *multi.WeightedUndirectedGraph
 	nameToID map[string]int64
+	knowns   []string
 }
 
-func NewGraph() *Graph {
+func NewGraph(indvs []string) *Graph {
 	return &Graph{
 		wug:      multi.NewWeightedUndirectedGraph(),
-		nameToID: make(map[string]int64),
+		nameToID: make(map[string]int64, len(indvs)),
+		knowns:   indvs,
 	}
 }
 
-func NewGraphFromCsvInput(in csvin.CsvInput, maxDist unit.RelationalDistance) *Graph {
+func NewGraphFromCsvInput(in csvin.CsvInput, maxDist relational.Degree) *Graph {
 	indvs := in.Indvs()
-	g := NewGraph()
+	g := NewGraph(indvs)
 
 	for i := range indvs {
 		for j := range indvs {
@@ -40,11 +43,12 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist unit.RelationalDistance) *G
 			} else {
 				from := indvs[i]
 				to := indvs[j]
-				graphdist := in.RelDistance(from, to).GraphDistance()
+				degree := in.RelDistance(from, to)
 				relatedness := in.Relatedness(from, to)
-				if graphdist <= maxDist.GraphDistance() {
-					path := NewRelationalWeightPath(from, to, graphdist, relatedness.Weight())
-					g.AddPath(path)
+				if degree <= maxDist {
+					if path, err := NewRelationalWeightPath(from, to, degree, relatedness.Weight()); err == nil {
+						g.AddPath(path)
+					}
 				}
 			}
 		}
@@ -53,7 +57,7 @@ func NewGraphFromCsvInput(in csvin.CsvInput, maxDist unit.RelationalDistance) *G
 }
 
 func (graph *Graph) PruneToShortest(indvs []string) *Graph {
-	g := NewGraph()
+	g := NewGraph(graph.knowns)
 	for i := 0; i < len(indvs); i++ {
 		if src := graph.NodeNamed(indvs[i]); src != nil {
 			if shortest, ok := path.BellmanFordFrom(src, graph); ok {
@@ -76,6 +80,15 @@ func (graph *Graph) PruneToShortest(indvs []string) *Graph {
 		}
 	}
 	return g
+}
+
+func (graph *Graph) IsKnown(name string) bool {
+	for i := range graph.knowns {
+		if name == graph.knowns[i] {
+			return true
+		}
+	}
+	return false
 }
 
 func (self *Graph) AddPath(p Path) {

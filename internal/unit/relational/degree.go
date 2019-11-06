@@ -1,9 +1,9 @@
-package unit
+package relational
 
-type RelationalDegree uint
+type Degree uint
 
 const (
-	Zeroth RelationalDegree = iota
+	Unrelated Degree = iota
 	First
 	Second
 	Third
