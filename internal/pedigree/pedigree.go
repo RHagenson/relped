@@ -8,9 +8,10 @@ import (
 // "Constant" maps for attributes
 var (
 	knownIndvAttrs = map[string]string{
-		"fontname": "Sans",
-		"shape":    "record",
-		"style":    "solid",
+		"fontname":  "Sans",
+		"shape":     "record",
+		"style":     "filled",
+		"fillcolor": "yellow",
 	}
 	unknownIndvAttrs = map[string]string{
 		"fontname": "Sans",
@@ -18,7 +19,8 @@ var (
 		"style":    "dashed",
 	}
 	knownRelAttrs = map[string]string{
-		"style": "solid",
+		"style":    "solid",
+		"penwidth": "2.5",
 	}
 	unknownRelAttrs = map[string]string{
 		"style": "dashed",
