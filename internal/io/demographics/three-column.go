@@ -38,7 +38,7 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 		id := records[i][0]
 		sex := records[i][1]
 
-		if birthYear, err := strconv.ParseUint(records[i][2], 10, 64); err != nil {
+		if birthYear, err := strconv.ParseUint(records[i][2], 10, 64); err == nil {
 			c.ages[id] = Age(y - uint(birthYear))
 		}
 		switch sex {
