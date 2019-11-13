@@ -1,6 +1,9 @@
 package pedigree
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/awalterschulze/gographviz"
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/io/demographics"
@@ -35,7 +38,8 @@ var (
 )
 
 type Pedigree struct {
-	g *gographviz.Escape
+	g     *gographviz.Escape
+	ranks map[demographics.Age][]string
 }
 
 func NewPedigree() *Pedigree {
@@ -46,7 +50,8 @@ func NewPedigree() *Pedigree {
 		g.AddAttr("pedigree", attr, val)
 	}
 	return &Pedigree{
-		g: g,
+		g:     g,
+		ranks: make(map[demographics.Age][]string),
 	}
 }
 
@@ -68,6 +73,9 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 				} else {
 					ped.AddKnownIndv(from, demographics.Unknown)
 				}
+				if fromAge, ok := dems.Age(from); ok {
+					ped.AddToRank(fromAge, from)
+				}
 			} else {
 				ped.AddKnownIndv(from, demographics.Unknown)
 			}
@@ -81,6 +89,9 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 					ped.AddKnownIndv(to, toSex)
 				} else {
 					ped.AddKnownIndv(to, demographics.Unknown)
+				}
+				if toAge, ok := dems.Age(to); ok {
+					ped.AddToRank(toAge, to)
 				}
 			} else {
 				ped.AddKnownIndv(to, demographics.Unknown)
@@ -128,5 +139,24 @@ func (p *Pedigree) AddUnknownRel(src, dst string) error {
 }
 
 func (p *Pedigree) String() string {
-	return p.g.String()
+	out := p.g.String()
+	ranks := new(strings.Builder)
+	for age, indvs := range p.ranks {
+		if len(indvs) > 1 {
+			ranks.WriteString("\t{rank=same; ")
+			ranks.WriteString(strings.Join(indvs, ", "))
+			ranks.WriteString(fmt.Sprintf(" }; // Age: %d \n", age))
+		}
+	}
+	out = out[:len(out)-2] + ranks.String() + "}\n"
+	return out
+}
+
+func (p *Pedigree) AddToRank(a demographics.Age, id string) {
+	for _, indv := range p.ranks[a] {
+		if indv == id {
+			return
+		}
+	}
+	p.ranks[a] = append(p.ranks[a], id)
 }
