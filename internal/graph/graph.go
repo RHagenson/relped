@@ -20,7 +20,7 @@ var _ gonumGraph.Weighted = new(Graph)
 // Graph has named nodes/vertexes
 type Graph struct {
 	wug      *multi.WeightedUndirectedGraph
-	nameToID map[string]int64
+	nameToID map[string]int64 // TODO: make nametoInfo map[string]Info{ID: int64, known: bool, sex: Male|Female|Unknown, dam: int64, sire: int64}
 	knowns   []string
 }
 
