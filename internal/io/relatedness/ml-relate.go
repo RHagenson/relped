@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/unit/relational"
@@ -42,8 +43,8 @@ func NewMLRelateCsv(f *os.File, normalize bool) *MLRelateCsv {
 	indvMap := make(map[string]struct{}, len(records))
 
 	for i := range records {
-		from := records[i][0]
-		to := records[i][1]
+		from := strings.TrimSpace(records[i][0])
+		to := strings.TrimSpace(records[i][1])
 		rel := 0.0
 
 		// Set relatedness value
