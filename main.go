@@ -4,8 +4,9 @@ import (
 	"flag"
 	"os"
 
-	"github.com/rhagenson/relped/internal/csvin"
 	"github.com/rhagenson/relped/internal/graph"
+	"github.com/rhagenson/relped/internal/io/demographics"
+	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/pedigree"
 	"github.com/rhagenson/relped/internal/unit/relational"
 	log "github.com/sirupsen/logrus"
@@ -16,9 +17,10 @@ var maxDist = relational.Ninth
 
 // Required flags
 var (
-	fThreeColumn = pflag.String("three-column", "", "Input standard three-column file (optional)")
-	fMLRelate    = pflag.String("ml-relate", "", "Input ML-Relate file (optional)")
-	fOut         = pflag.String("output", "", "Output file (required)")
+	fThreeColumn  = pflag.String("three-column", "", "Input standard three-column file (optional)")
+	fMLRelate     = pflag.String("ml-relate", "", "Input ML-Relate file (optional)")
+	fDemographics = pflag.String("demographics", "", "Input demographics file (optional)")
+	fOut          = pflag.String("output", "", "Output file (required)")
 )
 
 // General use flags
@@ -36,6 +38,9 @@ func setup() {
 		pflag.Usage()
 		os.Exit(1)
 	}
+
+	// Set maxDist
+	maxDist = relational.Degree((*opMaxDistance))
 
 	// Information states
 	switch {
@@ -71,6 +76,11 @@ func main() {
 	// Parse CLI arguments
 	setup()
 
+	var (
+		input relatedness.CsvInput
+		dems  demographics.CsvInput
+	)
+
 	// Read in CSV input
 	switch {
 	case *fThreeColumn != "":
@@ -80,7 +90,14 @@ func main() {
 		if err != nil {
 			log.Fatalf("Could not read input file: %s\n", err)
 		}
-		input := csvin.NewThreeColumnCsv(in, *opNormalize)
+		input = relatedness.NewThreeColumnCsv(in, *opNormalize)
+
+		inDem, err := os.Open(*fDemographics)
+		defer inDem.Close()
+		if err != nil {
+			log.Fatalf("Could not read demographics file: %s\n", err)
+		}
+		dems = demographics.NewThreeColumnCsv(inDem)
 
 		// Build graph
 		g := graph.NewGraphFromCsvInput(input, maxDist)
@@ -90,7 +107,7 @@ func main() {
 		g = g.PruneToShortest(indvs)
 
 		// Write the outout
-		ped := pedigree.NewPedigreeFromGraph(g, indvs)
+		ped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
 		out, err := os.Create(*fOut)
 		defer out.Close()
 		if err != nil {
@@ -104,8 +121,15 @@ func main() {
 			log.Errorf("Could not read input file: %s\n", err)
 		}
 
-		input := csvin.NewMLRelateCsv(in, *opNormalize)
+		input := relatedness.NewMLRelateCsv(in, *opNormalize)
 		indvs := input.Indvs()
+
+		inDem, err := os.Open(*fDemographics)
+		defer inDem.Close()
+		if err != nil {
+			log.Fatalf("Could not read demographics file: %s\n", err)
+		}
+		dems = demographics.NewThreeColumnCsv(inDem)
 
 		// Build graph
 		g := graph.NewGraphFromCsvInput(input, maxDist)
@@ -114,7 +138,7 @@ func main() {
 		g = g.PruneToShortest(indvs)
 
 		// Write the outout
-		ped := pedigree.NewPedigreeFromGraph(g, indvs)
+		ped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
 		out, err := os.Create(*fOut)
 		defer out.Close()
 		if err != nil {

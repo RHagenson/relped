@@ -1,4 +1,4 @@
-package csvin
+package relatedness
 
 import (
 	"github.com/rhagenson/relped/internal/unit"

@@ -3,6 +3,7 @@ package pedigree
 import (
 	"github.com/awalterschulze/gographviz"
 	"github.com/rhagenson/relped/internal/graph"
+	"github.com/rhagenson/relped/internal/io/demographics"
 )
 
 // "Constant" maps for attributes
@@ -15,7 +16,7 @@ var (
 	}
 	unknownIndvAttrs = map[string]string{
 		"fontname": "Sans",
-		"shape":    "record",
+		"shape":    "diamond",
 		"style":    "dashed",
 	}
 	knownRelAttrs = map[string]string{
@@ -49,7 +50,7 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g *graph.Graph, indvs []string) *Pedigree {
+func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvInput) *Pedigree {
 	ped := NewPedigree()
 
 	iter := g.Edges()
@@ -61,13 +62,29 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string) *Pedigree {
 		fromKnown := g.IsKnown(from)
 		toKnown := g.IsKnown(to)
 		if fromKnown {
-			ped.AddKnownIndv(from)
+			if dems != nil {
+				if fromSex, ok := dems.Sex(from); ok {
+					ped.AddKnownIndv(from, fromSex)
+				} else {
+					ped.AddKnownIndv(from, demographics.Unknown)
+				}
+			} else {
+				ped.AddKnownIndv(from, demographics.Unknown)
+			}
 		} else {
 			ped.AddUnknownIndv(from)
 		}
 
 		if toKnown {
-			ped.AddKnownIndv(to)
+			if dems != nil {
+				if toSex, ok := dems.Sex(to); ok {
+					ped.AddKnownIndv(to, toSex)
+				} else {
+					ped.AddKnownIndv(to, demographics.Unknown)
+				}
+			} else {
+				ped.AddKnownIndv(to, demographics.Unknown)
+			}
 		} else {
 			ped.AddUnknownIndv(to)
 		}
@@ -81,12 +98,25 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string) *Pedigree {
 	return ped
 }
 
-func (p *Pedigree) AddKnownIndv(node string) error {
-	return p.g.AddNode(p.g.Name, node, knownIndvAttrs)
+func (p *Pedigree) AddKnownIndv(node string, sex demographics.Sex) error {
+	attrs := knownIndvAttrs
+	switch sex {
+	case demographics.Female:
+		attrs["shape"] = "ellipse"
+	case demographics.Male:
+		attrs["shape"] = "box"
+	case demographics.Unknown:
+		attrs["shape"] = "record"
+	default:
+		attrs["shape"] = "record"
+	}
+
+	return p.g.AddNode(p.g.Name, node, attrs)
 }
 
 func (p *Pedigree) AddUnknownIndv(node string) error {
-	return p.g.AddNode(p.g.Name, node, unknownIndvAttrs)
+	attrs := unknownIndvAttrs
+	return p.g.AddNode(p.g.Name, node, attrs)
 }
 
 func (p *Pedigree) AddKnownRel(src, dst string) error {

@@ -3,7 +3,7 @@ package graph
 import (
 	"fmt"
 
-	"github.com/rhagenson/relped/internal/csvin"
+	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/unit/relational"
 	gonumGraph "gonum.org/v1/gonum/graph"
@@ -32,7 +32,7 @@ func NewGraph(indvs []string) *Graph {
 	}
 }
 
-func NewGraphFromCsvInput(in csvin.CsvInput, maxDist relational.Degree) *Graph {
+func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph(indvs)
 

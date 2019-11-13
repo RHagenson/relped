@@ -1,4 +1,4 @@
-package csvin
+package relatedness
 
 import (
 	"encoding/csv"
