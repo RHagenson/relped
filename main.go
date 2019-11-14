@@ -2,10 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/io/demographics"
+	"github.com/rhagenson/relped/internal/io/parentage"
 	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/pedigree"
 	"github.com/rhagenson/relped/internal/unit/relational"
@@ -17,8 +20,9 @@ var maxDist = relational.Ninth
 
 // Required flags
 var (
-	fIn           = pflag.String("input", "", "Input standard three-column file")
+	fIn           = pflag.String("input", "", "Input standard three-column file  (required)")
 	fDemographics = pflag.String("demographics", "", "Input demographics file (optional)")
+	fParentage    = pflag.String("parentage", "", "Input parentage file (optional)")
 	fOut          = pflag.String("output", "", "Output file (required)")
 )
 
@@ -68,6 +72,7 @@ func main() {
 	var (
 		input relatedness.CsvInput
 		dems  demographics.CsvInput
+		pars  parentage.CsvInput
 	)
 
 	// Read in CSV input
@@ -80,15 +85,33 @@ func main() {
 		}
 		input = relatedness.NewThreeColumnCsv(in, *opNormalize)
 
-		inDem, err := os.Open(*fDemographics)
-		defer inDem.Close()
-		if err != nil {
-			log.Fatalf("Could not read demographics file: %s\n", err)
+		// Open demographics file
+		if *fDemographics != "" {
+			inDem, err := os.Open(*fDemographics)
+			defer inDem.Close()
+			if err != nil {
+				log.Fatalf("Could not read demographics file: %s\n", err)
+			}
+			dems = demographics.NewThreeColumnCsv(inDem)
 		}
-		dems = demographics.NewThreeColumnCsv(inDem)
+
+		// Open parentage file
+		if *fParentage != "" {
+			inPar, err := os.Open(*fParentage)
+			defer inPar.Close()
+			if err != nil {
+				log.Fatalf("Could not read parentage file: %s\n", err)
+			}
+			pars = parentage.NewThreeColumnCsv(inPar)
+		}
+
+		// Check demographics and parentage for consistency
+		if msg := DemsAndParsAgree(dems, pars); msg != "" {
+			log.Fatalf("The demographics and parentage files disagree:\n%s", msg)
+		}
 
 		// Build graph
-		g := graph.NewGraphFromCsvInput(input, maxDist)
+		g := graph.NewGraphFromCsvInput(input, maxDist, pars)
 
 		// Prune edges to only the shortest between two knowns
 		indvs := input.Indvs()
@@ -103,6 +126,26 @@ func main() {
 		}
 		out.WriteString(ped.String())
 	}
-
 	return
+}
+
+func DemsAndParsAgree(dems demographics.CsvInput, pars parentage.CsvInput) string {
+	var s strings.Builder
+	for _, indv := range pars.Indvs() {
+		if sire, ok := pars.Sire(indv); ok {
+			if sex, ok := dems.Sex(sire); ok {
+				if sex != demographics.Male {
+					s.WriteString(fmt.Sprintf("Sire %s for ID %s should be male, but is stated as %s in demographics\n", sire, indv, sex))
+				}
+			}
+		}
+		if dam, ok := pars.Dam(indv); ok {
+			if sex, ok := dems.Sex(dam); ok {
+				if sex != demographics.Female {
+					s.WriteString(fmt.Sprintf("Dam %s for ID %s should be female, but is stated as %s in demographics\n", dam, indv, sex))
+				}
+			}
+		}
+	}
+	return s.String()
 }

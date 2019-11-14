@@ -36,7 +36,7 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 		Rel string `csv:"Rel"`
 	}
 
-	entries := make([]entry, 100)
+	entries := make([]entry, 0, 100)
 	for {
 		var e entry
 
@@ -103,6 +103,7 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 		c.indvs = append(c.indvs, indv.(string))
 	}
 
+	// TODO: Fix setting max and min
 	if normalize {
 		for from, m := range c.rels {
 			for to, rel := range m {

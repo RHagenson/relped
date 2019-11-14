@@ -9,6 +9,19 @@ const (
 	Male
 )
 
+func (s Sex) String() string {
+	switch s {
+	case Female:
+		return "Female"
+	case Male:
+		return "Male"
+	case Unknown:
+		return "Unknown"
+	default:
+		return "N/A"
+	}
+}
+
 type CsvInput interface {
 	Age(string) (Age, bool)
 	Sex(string) (Sex, bool)

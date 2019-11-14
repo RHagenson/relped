@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 
+	"github.com/rhagenson/relped/internal/io/parentage"
 	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/unit/relational"
@@ -32,9 +33,30 @@ func NewGraph(indvs []string) *Graph {
 	}
 }
 
-func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree) *Graph {
+func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph(indvs)
+
+	if pars != nil {
+		indvs := pars.Indvs()
+		for _, indv := range indvs {
+
+			degree := relational.First
+			relatedness := unit.Relatedness(1.0)
+			if degree <= maxDist {
+				if sire, ok := pars.Sire(indv); ok {
+					if path, err := NewRelationalWeightPath(sire, indv, degree, relatedness.Weight()); err == nil {
+						g.AddPath(path)
+					}
+				}
+				if dam, ok := pars.Dam(indv); ok {
+					if path, err := NewRelationalWeightPath(dam, indv, degree, relatedness.Weight()); err == nil {
+						g.AddPath(path)
+					}
+				}
+			}
+		}
+	}
 
 	for i := range indvs {
 		for j := range indvs {
