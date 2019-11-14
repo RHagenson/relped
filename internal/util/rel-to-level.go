@@ -16,7 +16,7 @@ import (
 //     relToLevel(<=0)   --> Unrelated
 func RelToLevel(x float64) relational.Degree {
 	if x <= 0 {
-		return 0
+		return relational.Unrelated
 	}
 	switch uint(math.Round(math.Log(1/x) / math.Log(2))) {
 	case 1:

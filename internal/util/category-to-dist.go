@@ -4,9 +4,9 @@ import (
 	"github.com/rhagenson/relped/internal/unit/relational"
 )
 
-// MLRelateToDist converts the category used by ML-Relate to
+// CategoryToDist converts the category used by ML-Relate to
 // its relational distance. Errors on unrecognized categories.
-func MLRelateToDist(cat string) relational.Degree {
+func CategoryToDist(cat string) relational.Degree {
 	switch cat {
 	case "PO":
 		return relational.First

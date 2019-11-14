@@ -17,8 +17,7 @@ var maxDist = relational.Ninth
 
 // Required flags
 var (
-	fThreeColumn  = pflag.String("three-column", "", "Input standard three-column file (optional)")
-	fMLRelate     = pflag.String("ml-relate", "", "Input ML-Relate file (optional)")
+	fIn           = pflag.String("input", "", "Input standard three-column file")
 	fDemographics = pflag.String("demographics", "", "Input demographics file (optional)")
 	fOut          = pflag.String("output", "", "Output file (required)")
 )
@@ -43,18 +42,10 @@ func setup() {
 	maxDist = relational.Degree((*opMaxDistance))
 
 	// Information states
-	switch {
-	case *fMLRelate != "" && *opMaxDistance == uint(maxDist):
-		// ML-Relate does not handle relationships beyond distance of 3 (i.e.: PO, FS, HS)
-		maxDist = relational.Third
-		*opMaxDistance = uint(maxDist)
-		log.Infof("Setting --max-distance=%d\n", maxDist)
-	}
+	// None
 
 	// Warning states
 	switch {
-	case *fMLRelate != "" && *opNormalize:
-		log.Warnf("Normalizing relatedness scores with ML-Relate input has no effect.\n")
 	case uint(maxDist) < *opMaxDistance:
 		log.Warnf("Estimating relational distance beyond %d is ill-advised.", maxDist)
 	}
@@ -63,12 +54,10 @@ func setup() {
 	switch {
 	case *fOut == "":
 		pflag.Usage()
-		log.Fatalf("Must provide both an output name.\n")
-	case *fThreeColumn == "" && *fMLRelate == "":
+		log.Fatalf("Must provide --output.\n")
+	case *fIn == "":
 		pflag.Usage()
-		log.Fatalf("One of --input or --ml-relate is required.\n")
-	case *fMLRelate != "" && 3 < *opMaxDistance:
-		log.Fatalf("ML-Relate does not handle distance > 3, set --max-distance <= 3. Set at: %d\n", *opMaxDistance)
+		log.Fatalf("Must provide --input.\n")
 	}
 }
 
@@ -82,10 +71,9 @@ func main() {
 	)
 
 	// Read in CSV input
-	switch {
-	case *fThreeColumn != "":
+	if *fIn != "" {
 		// Open input file
-		in, err := os.Open(*fThreeColumn)
+		in, err := os.Open(*fIn)
 		defer in.Close()
 		if err != nil {
 			log.Fatalf("Could not read input file: %s\n", err)
@@ -114,37 +102,7 @@ func main() {
 			log.Fatalf("Could not create output file: %s\n", err)
 		}
 		out.WriteString(ped.String())
-	case *fMLRelate != "":
-		in, err := os.Open(*fMLRelate)
-		defer in.Close()
-		if err != nil {
-			log.Errorf("Could not read input file: %s\n", err)
-		}
-
-		input := relatedness.NewMLRelateCsv(in, *opNormalize)
-		indvs := input.Indvs()
-
-		inDem, err := os.Open(*fDemographics)
-		defer inDem.Close()
-		if err != nil {
-			log.Fatalf("Could not read demographics file: %s\n", err)
-		}
-		dems = demographics.NewThreeColumnCsv(inDem)
-
-		// Build graph
-		g := graph.NewGraphFromCsvInput(input, maxDist)
-
-		// Prune edges to only the shortest between two knowns
-		g = g.PruneToShortest(indvs)
-
-		// Write the outout
-		ped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
-		out, err := os.Create(*fOut)
-		defer out.Close()
-		if err != nil {
-			log.Fatalf("Could not create output file: %s\n", err)
-		}
-		out.WriteString(ped.String())
 	}
+
 	return
 }

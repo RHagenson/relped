@@ -2,10 +2,12 @@ package relatedness
 
 import (
 	"encoding/csv"
+	"io"
 	"os"
 	"strconv"
-	"strings"
 
+	mapset "github.com/deckarep/golang-set"
+	"github.com/jszwec/csvutil"
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/unit/relational"
 	"github.com/rhagenson/relped/internal/util"
@@ -16,65 +18,89 @@ var _ CsvInput = new(ThreeColumnCsv)
 
 type ThreeColumnCsv struct {
 	rels     map[string]map[string]unit.Relatedness
+	dists    map[string]map[string]relational.Degree
 	indvs    []string
 	min, max float64
 }
 
 func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 	inCsv := csv.NewReader(f)
-	// Simple three column format:
-	// Indv1, Indv2, Relatedness
-	inCsv.FieldsPerRecord = 3
-	records, err := inCsv.ReadAll()
+	dec, err := csvutil.NewDecoder(inCsv)
 	if err != nil {
-		log.Errorf("Problem parsing line: %s\n", err)
+		log.Fatal(err)
 	}
-	records = util.RmHeader(records)
+
+	type entry struct {
+		ID1 string `csv:"ID1"`
+		ID2 string `csv:"ID2"`
+		Rel string `csv:"Rel"`
+	}
+
+	entries := make([]entry, 100)
+	for {
+		var e entry
+
+		if err := dec.Decode(&e); err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatal(err)
+		}
+		entries = append(entries, e)
+	}
 
 	c := &ThreeColumnCsv{
-		rels:  make(map[string]map[string]unit.Relatedness, len(records)),
-		indvs: make([]string, 0, len(records)),
+		rels:  make(map[string]map[string]unit.Relatedness, len(entries)),
+		dists: make(map[string]map[string]relational.Degree, len(entries)),
+		indvs: make([]string, 0, len(entries)),
 		min:   0,
 		max:   1,
 	}
 
-	indvMap := make(map[string]struct{}, len(records))
+	indvSet := mapset.NewSet()
 
-	for i := range records {
-		from := strings.TrimSpace(records[i][0])
-		to := strings.TrimSpace(records[i][1])
-		rel := 0.0
-
-		// Set relatedness value
-		if val, err := strconv.ParseFloat(records[i][2], 64); err == nil {
-			if val < 0 { // Negative value just means unrelated
-				rel = 0
-			} else {
-				rel = val
-			}
-		}
-		if _, ok := c.rels[from]; ok {
-			c.rels[from][to] = unit.Relatedness(rel)
-		} else {
-			c.rels[from] = make(map[string]unit.Relatedness, len(records))
-			c.rels[from][to] = unit.Relatedness(rel)
-		}
-
-		// Determine max and min
-		if rel < c.min {
-			c.min = rel
-		}
-		if c.max < rel {
-			c.max = rel
-		}
+	for _, e := range entries {
+		from := e.ID1
+		to := e.ID2
+		rel := e.Rel
 
 		// Add individuals to set for building non-redundant list of individuals
-		indvMap[from] = struct{}{}
-		indvMap[to] = struct{}{}
+		indvSet.Add(from)
+		indvSet.Add(to)
+
+		if _, ok := c.rels[from]; !ok {
+			c.rels[from] = make(map[string]unit.Relatedness, len(entries))
+		}
+		if _, ok := c.dists[from]; !ok {
+			c.dists[from] = make(map[string]relational.Degree, len(entries))
+		}
+
+		// Set relatedness and distance values
+		if val, err := strconv.ParseFloat(rel, 64); err == nil {
+			c.dists[from][to] = util.RelToLevel(val)
+			if 0 < val {
+				c.rels[from][to] = unit.Relatedness(val)
+			} else { // Negative value just means unrelated
+				c.rels[from][to] = unit.Relatedness(0)
+			}
+		} else {
+			c.dists[from][to] = util.CategoryToDist(rel)
+			switch rel {
+			case "PO":
+				c.rels[from][to] = unit.Relatedness(0.5)
+			case "FS":
+				c.rels[from][to] = unit.Relatedness(0.25)
+			case "HS":
+				c.rels[from][to] = unit.Relatedness(0.125)
+			case "U":
+				c.rels[from][to] = unit.Relatedness(0)
+			default:
+				c.rels[from][to] = unit.Relatedness(0)
+			}
+		}
 	}
 
-	for indv := range indvMap {
-		c.indvs = append(c.indvs, indv)
+	for _, indv := range indvSet.ToSlice() {
+		c.indvs = append(c.indvs, indv.(string))
 	}
 
 	if normalize {
