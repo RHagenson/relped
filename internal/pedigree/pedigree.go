@@ -23,17 +23,15 @@ var (
 		"style":    "dashed",
 	}
 	knownRelAttrs = map[string]string{
-		"style":    "solid",
-		"penwidth": "2.5",
+		"style": "bold",
 	}
 	unknownRelAttrs = map[string]string{
 		"style": "dashed",
 	}
 	graphAttrs = map[string]string{
-		"rankdir":  "TB",
-		"splines":  "ortho",
-		"ratio":    "auto",
-		"mincross": "2.0",
+		"rankdir": "TB",
+		"splines": "ortho",
+		"ratio":   "auto",
 	}
 )
 
@@ -131,7 +129,8 @@ func (p *Pedigree) AddUnknownIndv(node string) error {
 }
 
 func (p *Pedigree) AddKnownRel(src, dst string) error {
-	return p.g.AddEdge(src, dst, p.g.Directed, knownRelAttrs)
+	attrs := knownRelAttrs
+	return p.g.AddEdge(src, dst, p.g.Directed, attrs)
 }
 
 func (p *Pedigree) AddUnknownRel(src, dst string) error {
