@@ -2,12 +2,13 @@ package demographics
 
 import (
 	"encoding/csv"
+	"io"
 	"os"
-	"strconv"
+	"strings"
 
 	"time"
 
-	"github.com/rhagenson/relped/internal/util"
+	"github.com/jszwec/csvutil"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,39 +20,49 @@ type ThreeColumnCsv struct {
 }
 
 func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
+	y := uint(time.Now().Year())
+	inCsv := csv.NewReader(f)
+	dec, err := csvutil.NewDecoder(inCsv)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	type entry struct {
+		ID        string `csv:"ID"`
+		Sex       string `csv:"Sex"`
+		BirthYear uint   `csv:"Birth Year"`
+	}
+
+	entries := make([]entry, 0, 100)
+	for {
+		var e entry
+
+		if err := dec.Decode(&e); err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatal(err)
+		}
+		entries = append(entries, e)
+	}
+
 	c := &ThreeColumnCsv{
 		ages:  make(map[string]Age),
 		sexes: make(map[string]Sex),
 	}
-	inCsv := csv.NewReader(f)
-	// Simple three column format:
-	// ID, Sex, Birth Year
-	inCsv.FieldsPerRecord = 3
-	records, err := inCsv.ReadAll()
-	if err != nil {
-		log.Errorf("Problem parsing line: %s\n", err)
-	}
-	records = util.RmHeader(records)
-	y := uint(time.Now().Year())
 
-	for i := range records {
-		id := records[i][0]
-		sex := records[i][1]
-
-		if birthYear, err := strconv.ParseUint(records[i][2], 10, 64); err == nil {
-			c.ages[id] = Age(y - uint(birthYear))
-		}
-		switch sex {
-		case "Female", "F", "FEMALE", "female":
-			c.sexes[id] = Female
-		case "Male", "M", "MALE", "male":
-			c.sexes[id] = Male
-		case "Unknown", "U", "UNKNOWN", "unknown":
-			c.sexes[id] = Unknown
+	for _, e := range entries {
+		switch {
+		case strings.ToUpper(e.Sex) == "F", strings.ToUpper(e.Sex) == "FEMALE":
+			c.sexes[e.ID] = Female
+		case strings.ToUpper(e.Sex) == "M", strings.ToUpper(e.Sex) == "MALE":
+			c.sexes[e.ID] = Male
+		case strings.ToUpper(e.Sex) == "U", strings.ToUpper(e.Sex) == "UNKNOWN":
+			c.sexes[e.ID] = Unknown
 		default:
-			log.Warnf("Did not understand Sex in entry: %v; setting Sex to Unknown\n", records[i])
-			c.sexes[id] = Unknown
+			log.Warnf("Did not understand Sex in entry: %v; setting Sex to Unknown\n", e)
+			c.sexes[e.ID] = Unknown
 		}
+		c.ages[e.ID] = Age(y - uint(e.BirthYear))
 	}
 
 	return c
