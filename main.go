@@ -76,62 +76,59 @@ func main() {
 	)
 
 	// Read in CSV input
-	if *fIn != "" {
-		// Open input file
-		in, err := os.Open(*fIn)
-		defer in.Close()
-		if err != nil {
-			log.Fatalf("Could not read input file: %s\n", err)
-		}
-		input = relatedness.NewThreeColumnCsv(in, *opNormalize)
-
-		// Open demographics file
-		if *fDemographics != "" {
-			inDem, err := os.Open(*fDemographics)
-			defer inDem.Close()
-			if err != nil {
-				log.Fatalf("Could not read demographics file: %s\n", err)
-			}
-			dems = demographics.NewThreeColumnCsv(inDem)
-		}
-
-		// Open parentage file
-		if *fParentage != "" {
-			inPar, err := os.Open(*fParentage)
-			defer inPar.Close()
-			if err != nil {
-				log.Fatalf("Could not read parentage file: %s\n", err)
-			}
-			pars = parentage.NewThreeColumnCsv(inPar)
-		}
-
-		// Check demographics and parentage for consistency
-		if msg := DemsAndParsAgree(dems, pars); msg != "" {
-			log.Fatalf("The demographics and parentage files disagree:\n%s", msg)
-		}
-
-		// Build graph
-		g := graph.NewGraphFromCsvInput(input, maxDist, pars)
-
-		// Prune edges to only the shortest between two knowns
-		indvs := input.Indvs()
-		g = g.PruneToShortest(indvs)
-
-		// Write the outout
-		ped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
-		out, err := os.Create(*fOut)
-		defer out.Close()
-		if err != nil {
-			log.Fatalf("Could not create output file: %s\n", err)
-		}
-		out.WriteString(ped.String())
+	in, err := os.Open(*fIn)
+	defer in.Close()
+	if err != nil {
+		log.Fatalf("Could not read input file: %s\n", err)
 	}
+	input = relatedness.NewThreeColumnCsv(in, *opNormalize)
+
+	// Open demographics file
+	if *fDemographics != "" {
+		inDem, err := os.Open(*fDemographics)
+		defer inDem.Close()
+		if err != nil {
+			log.Fatalf("Could not read demographics file: %s\n", err)
+		}
+		dems = demographics.NewThreeColumnCsv(inDem)
+	}
+
+	// Open parentage file
+	if *fParentage != "" {
+		inPar, err := os.Open(*fParentage)
+		defer inPar.Close()
+		if err != nil {
+			log.Fatalf("Could not read parentage file: %s\n", err)
+		}
+		pars = parentage.NewThreeColumnCsv(inPar)
+	}
+
+	// Check demographics and parentage for consistency
+	if msg := DemsAndParsAgree(dems, pars); msg != "" {
+		log.Fatalf("The demographics and parentage files disagree:\n%s", msg)
+	}
+
+	// Build graph
+	g := graph.NewGraphFromCsvInput(input, maxDist, pars)
+
+	// Prune edges to only the shortest between two knowns
+	indvs := input.Indvs()
+	g = g.PruneToShortest(indvs)
+
+	// Write the outout
+	ped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
+	out, err := os.Create(*fOut)
+	defer out.Close()
+	if err != nil {
+		log.Fatalf("Could not create output file: %s\n", err)
+	}
+	out.WriteString(ped.String())
 	return
 }
 
 func DemsAndParsAgree(dems demographics.CsvInput, pars parentage.CsvInput) string {
 	if dems == nil || pars == nil {
-		return true
+		return ""
 	}
 	var s strings.Builder
 	for _, indv := range pars.Indvs() {
