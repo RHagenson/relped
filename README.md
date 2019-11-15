@@ -20,35 +20,70 @@ go get -u github.com/rhagenson/relped
 
 ## Input
 
-`relped` can use either a three-column CSV format:
+### Relatedness
+
+`relped` has one required input:
 
 Example:
 
 ```
-Indv1, Indv2, Relatedness
- 1234,  5678,        0.50
+ID1,ID2,Rel
+123,456,0.50
 ...
 ```
 
-or the ten-columns format from [ML-Relate](http://www.montana.edu/kalinowski/software/ml-relate/index.html):
+Note that your columns **must** be named `ID1`,`ID2`, and `Rel`. It is okay to have either duplicate entries of the same pair of IDs (but perhaps different `Rel`) or have entries where the IDs have been switched -- for duplicate entries, the last entry will be used.
+
+### Pedigree
+
+Example:
 
 ```
-Ind1, Ind2,  R, LnL.R.,     U,   HS, FS,   PO, Relationships, Relatedness
- 612,  608, FS, -82.43, 15.47, 5.71,  -, 0.86,            FS,      0.6426
+ID,Sire,Dam
+123,456,789
 ...
 ```
 
-Note that in either format, the position of columns matters, but the header of columns does not.
+Note that your columns **must** be named `ID`,`Sire`, and `Dam`. If your file contains duplicate ID entries, only the last entry will be used.
+
+### Demographics
+
+Example:
+
+```
+ID,Sex,BirthYear
+123,Male,1990
+...
+```
+
+Note that your columns **must** be named `ID`,`Sex`, and `BirthYear`. If your file contains duplicate ID entries, only the last entry will be used. `Sex` entries of either full word or first letter are recognized (e.g. `M` or `Male`) -- matching is case insensitive. `Sex` is used to change the formatting attributes in the final pedigree to distinguish males, females, and unknown sex. `BirthYear` is converted to age for the current year under the assumption that all birthdays have passed for the year (age is used to clarify the pedigree output).
 
 ## Output
 
-`relped` produces a Graphviz-formatted file with attributes generally deemed useful for building pedigree images including `rankdir="TB", splines="ortho"`.
+`relped` produces a Graphviz-formatted file (directed or undirected, depending on input) with attributes deemed useful for building pedigrees. Unlike in a regular pedigree, all nodes at the same height in the plot may not be the same age, however all connections will be exactly the same between runs of `relped`.
 
+### Producing multiple plots
 
-# Contributing
+Due to the unavoidable randomness of how the pedigree is plotted by Graphviz, the below template can be reused to build multiple plots in a row.
 
-If you find a bug, have a feature request, or otherwise would like to contact the author concerning issues with using `relped` please open an issue on the GitHub repo (<https://github.com/RHagenson/relped/issues>)
+```bash
+for run in {1..10}
+do
+  relped \
+    --input <relatedness> \
+    --demographics <demographics> \
+    --parentage <parentage> \
+    --output $run-<output> \
+  && dot -Tsvg -O $run-<output>
+done
+```
 
-# License
+What the above does is loop through the number 1-10 (assigning the current number to `run`), then calls `relped` with your inputs (`<relatedness>`, `<demographics>`, `<parentage>`) and writes multiple output files that are prepended with the run number (`$run-<output>`) -- and calls Graphviz to produce a rendered image for each plot of format stated (note there is no space in `-Tsvg`).
+
+## Contributing
+
+If you find a bug, have a feature request, or otherwise would like to contact the author concerning use of `relped`, please open an [issue](https://github.com/rhagenson/relped/issues).
+
+## License
 
 This work is licensed under the the MIT License, see full terms of use in [LICENSE](./LICENSE) file.
