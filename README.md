@@ -4,6 +4,20 @@
 
 `relped` builds a pedigree from relatedness.
 
+## Installation
+
+Before using `relped` there are a few programs you need to install:
+
++ [Git](https://git-scm.com/downloads): allows you to download `relped`
++ [Go](https://golang.org/dl/): allows you to compile `relped`
++ [Graphviz](https://graphviz.org/download/): allows you to render `relped`'s output
+
+After installing the programs above, getting `relped` installed should be as easy as:
+
+```bash
+go get -u github.com/rhagenson/relped
+```
+
 ## Input
 
 `relped` can use either a three-column CSV format:
