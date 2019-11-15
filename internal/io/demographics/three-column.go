@@ -30,7 +30,7 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 	type entry struct {
 		ID        string `csv:"ID"`
 		Sex       string `csv:"Sex"`
-		BirthYear uint   `csv:"Birth Year"`
+		BirthYear uint   `csv:"BirthYear"`
 	}
 
 	entries := make([]entry, 0, 100)
