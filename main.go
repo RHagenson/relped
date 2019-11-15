@@ -130,6 +130,9 @@ func main() {
 }
 
 func DemsAndParsAgree(dems demographics.CsvInput, pars parentage.CsvInput) string {
+	if dems == nil || pars == nil {
+		return true
+	}
 	var s strings.Builder
 	for _, indv := range pars.Indvs() {
 		if sire, ok := pars.Sire(indv); ok {
