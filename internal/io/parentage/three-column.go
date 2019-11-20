@@ -1,12 +1,10 @@
 package parentage
 
 import (
-	"encoding/csv"
-	"io"
 	"os"
 
 	mapset "github.com/deckarep/golang-set"
-	"github.com/jszwec/csvutil"
+	"github.com/gocarina/gocsv"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,12 +17,6 @@ type ThreeColumnCsv struct {
 }
 
 func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
-	inCsv := csv.NewReader(f)
-	dec, err := csvutil.NewDecoder(inCsv)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	type entry struct {
 		ID   string `csv:"ID"`
 		Sire string `csv:"Sire"`
@@ -32,15 +24,10 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 	}
 
 	entries := make([]entry, 0, 100)
-	for {
-		var e entry
 
-		if err := dec.Decode(&e); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
-		}
-		entries = append(entries, e)
+	gocsv.FailIfUnmatchedStructTags = true
+	if err := gocsv.UnmarshalFile(f, &entries); err != nil {
+		log.Fatalf("Misread in CSV: %s, rename column to match names used here\n", err)
 	}
 
 	c := &ThreeColumnCsv{

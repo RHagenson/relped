@@ -1,14 +1,12 @@
 package demographics
 
 import (
-	"encoding/csv"
-	"io"
 	"os"
 	"strings"
 
 	"time"
 
-	"github.com/jszwec/csvutil"
+	"github.com/gocarina/gocsv"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,28 +19,16 @@ type ThreeColumnCsv struct {
 
 func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 	y := uint(time.Now().Year())
-	inCsv := csv.NewReader(f)
-	dec, err := csvutil.NewDecoder(inCsv)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	type entry struct {
 		ID        string `csv:"ID"`
 		Sex       string `csv:"Sex"`
 		BirthYear uint   `csv:"BirthYear"`
 	}
+	entries := make([]*entry, 0, 100)
 
-	entries := make([]entry, 0, 100)
-	for {
-		var e entry
-
-		if err := dec.Decode(&e); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
-		}
-		entries = append(entries, e)
+	gocsv.FailIfUnmatchedStructTags = true
+	if err := gocsv.UnmarshalFile(f, &entries); err != nil {
+		log.Fatalf("Misread in CSV: %s, rename column to match names used here\n", err)
 	}
 
 	c := &ThreeColumnCsv{
@@ -62,7 +48,7 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 			log.Warnf("Did not understand Sex in entry: %v; setting Sex to Unknown\n", e)
 			c.sexes[e.ID] = Unknown
 		}
-		c.ages[e.ID] = Age(y - uint(e.BirthYear))
+		c.ages[e.ID] = Age(y - e.BirthYear)
 	}
 
 	return c
