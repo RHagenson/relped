@@ -64,23 +64,23 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 		if val, err := strconv.ParseFloat(rel, 64); err == nil {
 			c.dists[from][to] = util.RelToLevel(val)
 			if 0 < val {
-				c.rels[from][to] = unit.Relatedness(val)
+				c.addRelatedness(from, to, val)
 			} else { // Negative value just means unrelated
-				c.rels[from][to] = unit.Relatedness(0)
+				c.addRelatedness(from, to, 0.0)
 			}
 		} else {
 			c.dists[from][to] = util.CategoryToDist(rel)
 			switch rel {
 			case "PO":
-				c.rels[from][to] = unit.Relatedness(0.5)
+				c.addRelatedness(from, to, 0.5)
 			case "FS":
-				c.rels[from][to] = unit.Relatedness(0.25)
+				c.addRelatedness(from, to, 0.25)
 			case "HS":
-				c.rels[from][to] = unit.Relatedness(0.125)
+				c.addRelatedness(from, to, 0.125)
 			case "U":
-				c.rels[from][to] = unit.Relatedness(0)
+				c.addRelatedness(from, to, 0.0)
 			default:
-				c.rels[from][to] = unit.Relatedness(0)
+				c.addRelatedness(from, to, 0.0)
 			}
 		}
 	}
@@ -89,7 +89,6 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 		c.indvs = append(c.indvs, indv.(string))
 	}
 
-	// TODO: Fix setting max and min
 	if normalize {
 		for from, m := range c.rels {
 			for to, rel := range m {
@@ -99,6 +98,16 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 	}
 
 	return c
+}
+
+func (c *ThreeColumnCsv) addRelatedness(from, to string, rel float64) {
+	c.rels[from][to] = unit.Relatedness(rel)
+	if rel < c.min {
+		c.min = rel
+	}
+	if c.max < rel {
+		c.max = rel
+	}
 }
 
 func (c *ThreeColumnCsv) Indvs() []string {
