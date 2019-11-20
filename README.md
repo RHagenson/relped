@@ -69,8 +69,8 @@ Due to the unavoidable randomness of how the pedigree is plotted by Graphviz, th
 ```bash
 for run in {1..10}
 do
-  relped \
-    --input <relatedness> \
+  relped build \
+    --relatedness <relatedness> \
     --demographics <demographics> \
     --parentage <parentage> \
     --output $run-<output> \
