@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/io/demographics"
@@ -19,10 +20,15 @@ var maxDist = relational.Ninth
 
 // Required flags
 var (
-	fRelatedness  string
+	fRelatedness string
+	fOut         string
+)
+
+// Optional flags
+var (
 	fDemographics string
 	fParentage    string
-	fOut          string
+	fUnmapped     string
 )
 
 // General use flags
@@ -55,6 +61,7 @@ func init() {
 	// Optional inputs
 	buildCmd.Flags().StringVar(&fDemographics, "demographics", "", "Three-column demographics file")
 	buildCmd.Flags().StringVar(&fParentage, "parentage", "", "Three-column parentage file")
+	buildCmd.Flags().StringVar(&fUnmapped, "unmapped", "", "File of unmapped individuals from relatedness")
 
 	// Behavioral changes
 	buildCmd.Flags().BoolVar(&opNormalize, "normalize", false, "Normalize relatedness to [0,1]-bounded")
@@ -96,12 +103,19 @@ func build() {
 		pars  parentage.CsvInput
 	)
 
-	// Read in CSV input
+	// Open connections to the required files
 	in, err := os.Open(fRelatedness)
 	defer in.Close()
 	if err != nil {
 		log.Fatalf("Could not read input file: %s\n", err)
 	}
+	out, err := os.Create(fOut)
+	defer out.Close()
+	if err != nil {
+		log.Fatalf("Could not create output file: %s\n", err)
+	}
+
+	// Read in CSV input
 	input = relatedness.NewThreeColumnCsv(in, opNormalize)
 
 	// Open demographics file
@@ -137,11 +151,18 @@ func build() {
 	g = g.PruneToShortest(indvs)
 
 	// Write the outout
-	ped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
-	out, err := os.Create(fOut)
-	defer out.Close()
-	if err != nil {
-		log.Fatalf("Could not create output file: %s\n", err)
+	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
+	if fUnmapped != "" {
+		if unmapped != nil {
+			un, err := os.Create(fUnmapped)
+			defer un.Close()
+			if err != nil {
+				log.Fatalf("Could not create output file: %s\n", err)
+			}
+			un.WriteString(strings.Join(unmapped, "\n"))
+		} else {
+			log.Infof("No unmapped individuals\n")
+		}
 	}
 	out.WriteString(ped.String())
 	return

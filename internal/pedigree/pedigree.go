@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/awalterschulze/gographviz"
+	mapset "github.com/deckarep/golang-set"
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/io/demographics"
 )
@@ -53,8 +54,10 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvInput) *Pedigree {
+func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvInput) (*Pedigree, []string) {
 	ped := NewPedigree()
+	mapped := mapset.NewSet()
+	var unmapped []string
 
 	iter := g.Edges()
 	for iter.Next() {
@@ -103,8 +106,20 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		} else {
 			ped.AddUnknownRel(from, to)
 		}
+		mapped.Add(from)
+		mapped.Add(to)
 	}
-	return ped
+
+	for _, indv := range indvs {
+		if !mapped.Contains(indv) {
+			if unmapped == nil {
+				unmapped = make([]string, 0, len(indvs)-mapped.Cardinality())
+			}
+			unmapped = append(unmapped, indv)
+		}
+	}
+
+	return ped, unmapped
 }
 
 func (p *Pedigree) AddKnownIndv(node string, sex demographics.Sex) error {
