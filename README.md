@@ -26,7 +26,7 @@ go get -u github.com/rhagenson/relped
 
 Example:
 
-```
+```csv
 ID1,ID2,Rel
 123,456,0.50
 ...
@@ -38,7 +38,7 @@ Note that your columns **must** be named `ID1`,`ID2`, and `Rel`. It is okay to h
 
 Example:
 
-```
+```csv
 ID,Sire,Dam
 123,456,789
 ...
@@ -50,7 +50,7 @@ Note that your columns **must** be named `ID`,`Sire`, and `Dam`. If your file co
 
 Example:
 
-```
+```csv
 ID,Sex,BirthYear
 123,Male,1990
 ...
