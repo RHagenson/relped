@@ -43,15 +43,20 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 	}
 
 	indvSet := mapset.NewSet()
+	pairs := make(map[string][]string, len(entries))
 
 	for _, e := range entries {
 		from := e.ID1
 		to := e.ID2
 		rel := e.Rel
 
-		// Add individuals to set for building non-redundant list of individuals
-		indvSet.Add(from)
-		indvSet.Add(to)
+		if vs, ok := pairs[from]; ok {
+			for _, v := range vs {
+				if v == to {
+					log.Warnf("Relatedness pair ID %q and ID %q duplicated, using: %+v\n", from, to, e)
+				}
+			}
+		}
 
 		if _, ok := c.rels[from]; !ok {
 			c.rels[from] = make(map[string]unit.Relatedness, len(entries))
@@ -82,6 +87,15 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 			default:
 				c.addRelatedness(from, to, 0.0)
 			}
+		}
+
+		indvSet.Add(from)
+		indvSet.Add(to)
+		if _, ok := pairs[from]; ok {
+			pairs[from] = append(pairs[from], to)
+		} else {
+			pairs[from] = make([]string, 0, len(entries))
+			pairs[from] = append(pairs[from], to)
 		}
 	}
 

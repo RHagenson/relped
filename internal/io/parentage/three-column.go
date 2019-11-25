@@ -39,20 +39,22 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 
 	for i, e := range entries {
 		if e.ID != "" || e.Sire != "" || e.Dam != "" {
+			if indvSet.Contains(e.ID) {
+				log.Warnf("Parentage for ID %q duplicated, using: %+v\n", e.ID, e)
+			}
 			switch e.Sire {
 			case "0", "?":
 				// Do nothing
 			default:
-				indvSet.Add(e.ID)
 				c.sires[e.ID] = e.Sire
 			}
 			switch e.Dam {
 			case "0", "?":
 				// Do nothing
 			default:
-				indvSet.Add(e.ID)
 				c.dams[e.ID] = e.Dam
 			}
+			indvSet.Add(e.ID)
 		} else {
 			log.Warnf("Problem reading entry #%d: ID: %s, Sire: %s, Dam: %s\n", i+1, e.ID, e.Sire, e.Dam)
 		}

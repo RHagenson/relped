@@ -6,6 +6,7 @@ import (
 
 	"time"
 
+	mapset "github.com/deckarep/golang-set"
 	"github.com/gocarina/gocsv"
 	log "github.com/sirupsen/logrus"
 )
@@ -36,7 +37,11 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 		sexes: make(map[string]Sex),
 	}
 
+	ids := mapset.NewSet()
 	for _, e := range entries {
+		if ids.Contains(e.ID) {
+			log.Warnf("Demographics for ID %q duplicated, using: %+v\n", e.ID, e)
+		}
 		switch {
 		case strings.ToUpper(e.Sex) == "F", strings.ToUpper(e.Sex) == "FEMALE":
 			c.sexes[e.ID] = Female
@@ -49,6 +54,7 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 			c.sexes[e.ID] = Unknown
 		}
 		c.ages[e.ID] = Age(y - e.BirthYear)
+		ids.Add(e.ID)
 	}
 
 	return c
