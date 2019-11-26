@@ -68,7 +68,7 @@ func NewDirectedPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g graph.Graph, indvs []string, dems demographics.CsvInput) (*Pedigree, []string) {
+func NewPedigreeFromGraph(g graph.Graph, indvs []string) (*Pedigree, []string) {
 	var ped *Pedigree
 	switch g {
 	case g.(*graph.DirectedGraph):
@@ -92,17 +92,14 @@ func NewPedigreeFromGraph(g graph.Graph, indvs []string, dems demographics.CsvIn
 		toKnown := g.IsKnown(to)
 		if fromKnown {
 			mapped.Add(from)
-			if dems != nil {
-				if fromSex, ok := dems.Sex(from); ok {
-					ped.AddKnownIndv(from, fromSex)
-				} else {
-					ped.AddKnownIndv(from, demographics.Unknown)
-				}
-				if fromAge, ok := dems.Age(from); ok {
-					ped.AddToRank(fromAge, from)
-				}
+			fromInfo := g.Info(from)
+			if fromInfo.Sex != demographics.Unknown {
+				ped.AddKnownIndv(from, fromInfo.Sex)
 			} else {
 				ped.AddKnownIndv(from, demographics.Unknown)
+			}
+			if fromInfo.Age != 0 {
+				ped.AddToRank(fromInfo.Age, from)
 			}
 		} else {
 			ped.AddUnknownIndv(from)
@@ -110,33 +107,26 @@ func NewPedigreeFromGraph(g graph.Graph, indvs []string, dems demographics.CsvIn
 
 		if toKnown {
 			mapped.Add(to)
-			if dems != nil {
-				if toSex, ok := dems.Sex(to); ok {
-					ped.AddKnownIndv(to, toSex)
-				} else {
-					ped.AddKnownIndv(to, demographics.Unknown)
-				}
-				if toAge, ok := dems.Age(to); ok {
-					ped.AddToRank(toAge, to)
-				}
+			toInfo := g.Info(to)
+			if toInfo.Sex != demographics.Unknown {
+				ped.AddKnownIndv(to, toInfo.Sex)
 			} else {
 				ped.AddKnownIndv(to, demographics.Unknown)
+			}
+			if toInfo.Age != 0 {
+				ped.AddToRank(toInfo.Age, to)
 			}
 		} else {
 			ped.AddUnknownIndv(to)
 		}
 
 		if fromKnown && toKnown {
-			fromAge, fromOk := dems.Age(from)
-			toAge, toOk := dems.Age(to)
-			if fromOk && toOk {
-				if fromAge >= toAge {
-					ped.AddKnownRel(from, to)
-				} else {
-					ped.AddKnownRel(to, from)
-				}
-			} else {
+			fromInfo := g.Info(from)
+			toInfo := g.Info(to)
+			if fromInfo.Age >= toInfo.Age {
 				ped.AddKnownRel(from, to)
+			} else {
+				ped.AddKnownRel(to, from)
 			}
 		} else {
 			ped.AddUnknownRel(from, to)

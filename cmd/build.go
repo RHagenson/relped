@@ -151,7 +151,7 @@ func build() {
 	g = g.PruneToShortest(indvs)
 
 	// Write the outout
-	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs, dems)
+	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs)
 	if fUnmapped != "" {
 		if unmapped != nil {
 			un, err := os.Create(fUnmapped)

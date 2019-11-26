@@ -37,32 +37,33 @@ type Graph interface {
 	NameToID(string) (int64, bool)
 	IsKnown(name string) bool
 	PruneToShortest(indvs []string) *UndirectedGraph
+	Info(string) Info
 }
 
 // UndirectedGraph has named nodes/vertexes
 type UndirectedGraph struct {
 	wug        *multi.WeightedUndirectedGraph
-	nameToInfo map[string]info
+	nameToInfo map[string]Info
 	knowns     []string
 }
 
-type info struct {
+type Info struct {
 	ID        int64
-	sex       demographics.Sex
-	age       demographics.Age
-	dam, sire string
+	Sex       demographics.Sex
+	Age       demographics.Age
+	Dam, Sire string
 }
 
 type DirectedGraph struct {
 	wug        *multi.WeightedDirectedGraph
-	nameToInfo map[string]info
+	nameToInfo map[string]Info
 	knowns     []string
 }
 
 func NewUndirectedGraph(indvs []string) *UndirectedGraph {
 	return &UndirectedGraph{
 		wug:        multi.NewWeightedUndirectedGraph(),
-		nameToInfo: make(map[string]info, len(indvs)),
+		nameToInfo: make(map[string]Info, len(indvs)),
 		knowns:     indvs,
 	}
 }
@@ -70,7 +71,7 @@ func NewUndirectedGraph(indvs []string) *UndirectedGraph {
 func NewDirectedGraph(indvs []string) *DirectedGraph {
 	return &DirectedGraph{
 		wug:        multi.NewWeightedDirectedGraph(),
-		nameToInfo: make(map[string]info, len(indvs)),
+		nameToInfo: make(map[string]Info, len(indvs)),
 		knowns:     indvs,
 	}
 }
@@ -172,6 +173,14 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 		return newUndirectedGraph(in, maxDist)
 	}
 	return newDirectedGraph(in, maxDist, pars, dems)
+}
+
+func (graph *UndirectedGraph) Info(n string) Info {
+	return graph.nameToInfo[n]
+}
+
+func (graph *DirectedGraph) Info(n string) Info {
+	return graph.nameToInfo[n]
 }
 
 func (graph *UndirectedGraph) PruneToShortest(indvs []string) *UndirectedGraph {
@@ -309,37 +318,37 @@ func (graph *DirectedGraph) Weight(xid, yid int64) (w float64, ok bool) {
 
 func (graph *UndirectedGraph) AddNodeParentage(n, dam, sire string) {
 	info := graph.nameToInfo[n]
-	info.dam = dam
-	info.sire = sire
+	info.Dam = dam
+	info.Sire = sire
 	graph.nameToInfo[n] = info
 }
 
 func (graph *DirectedGraph) AddNodeParentage(n, dam, sire string) {
 	info := graph.nameToInfo[n]
-	info.dam = dam
-	info.sire = sire
+	info.Dam = dam
+	info.Sire = sire
 	graph.nameToInfo[n] = info
 }
 
 func (graph *UndirectedGraph) AddNodeAge(n string, age demographics.Age) {
 	info := graph.nameToInfo[n]
-	info.age = age
+	info.Age = age
 	graph.nameToInfo[n] = info
 }
 func (graph *UndirectedGraph) AddNodeSex(n string, sex demographics.Sex) {
 	info := graph.nameToInfo[n]
-	info.sex = sex
+	info.Sex = sex
 	graph.nameToInfo[n] = info
 }
 
 func (graph *DirectedGraph) AddNodeAge(n string, age demographics.Age) {
 	info := graph.nameToInfo[n]
-	info.age = age
+	info.Age = age
 	graph.nameToInfo[n] = info
 }
 func (graph *DirectedGraph) AddNodeSex(n string, sex demographics.Sex) {
 	info := graph.nameToInfo[n]
-	info.sex = sex
+	info.Sex = sex
 	graph.nameToInfo[n] = info
 }
 
