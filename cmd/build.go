@@ -145,12 +145,13 @@ func build() {
 	}
 
 	// Build graph (directed if pars != nil or dems != nil)
-	fmt.Println(pars, dems)
 	g := graph.NewGraphFromCsvInput(input, maxDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns
 	indvs := input.Indvs()
+	fmt.Printf("%+v\n", g)
 	g = g.PruneToShortest(indvs)
+	fmt.Printf("%+v\n", g)
 
 	// Write the outout
 	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs)

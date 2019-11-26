@@ -79,7 +79,7 @@ func (graph *UndirectedGraph) PruneToShortest(indvs []string) Graph {
 									if name, ok := graph.IDToName(from.ID()); ok {
 										names[i] = name
 										g.AddNodeNamed(name)
-										info := g.Info(name)
+										info := graph.Info(name)
 										g.AddInfo(name, info)
 									}
 								}
@@ -106,18 +106,6 @@ func (graph *UndirectedGraph) IsKnown(name string) bool {
 func (graph *UndirectedGraph) AddPath(p Path) {
 	names := p.Names()
 	weights := p.Weights()
-
-	from := graph.NodeNamed(names[0])
-	to := graph.NodeNamed(names[len(names)-1])
-
-	// Maintain only the shortest path
-	if from != nil && to != nil {
-		shortest, _ := path.AStar(from, to, graph, nil)
-		nodes, _ := shortest.To(to.ID())
-		if len(nodes) != 0 && len(nodes) < len(names) {
-			return
-		}
-	}
 
 	for i := range weights {
 		from := names[i]

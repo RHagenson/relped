@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"fmt"
 	"github.com/rhagenson/relped/internal/io/demographics"
 	"github.com/rhagenson/relped/internal/io/parentage"
 	"github.com/rhagenson/relped/internal/io/relatedness"
@@ -109,32 +110,27 @@ func (graph *DirectedGraph) AddInfo(name string, info Info) {
 
 func (graph *DirectedGraph) PruneToShortest(indvs []string) Graph {
 	g := NewDirectedGraph(indvs)
-	for fromI := range indvs {
-		if src := graph.NodeNamed(indvs[fromI]); src != nil {
-			if shortest, ok := path.BellmanFordFrom(src, graph); ok {
-				for toI := range indvs {
-					if fromI == toI {
-						continue
-					}
-					if dest := graph.NodeNamed(indvs[toI]); dest != nil {
-						nodes, cost := shortest.To(dest.ID())
-						names := make([]string, len(nodes)+2)
-						names[0] = indvs[fromI]
-						names[len(names)-1] = indvs[toI]
-						if len(nodes) != 0 {
-							for i := 1; i < len(names)-1; i++ {
-								from := nodes[i-1]
-								if g.Node(from.ID()) == nil {
-									if name, ok := graph.IDToName(from.ID()); ok {
-										names[i] = name
-										g.AddNodeNamed(name)
-										info := graph.Info(name)
-										g.AddInfo(name, info)
-									}
-								}
+
+	if allShortest, ok := path.FloydWarshall(graph); ok {
+		for i := range indvs {
+			for j := range indvs {
+				if i == j {
+					continue
+				}
+				fromID, fromOK := graph.NameToID(indvs[i])
+				toID, toOK := graph.NameToID(indvs[j])
+				if fromOK && toOK {
+					shortest, _, _ := allShortest.Between(fromID, toID)
+					if len(shortest) != 0 {
+						names := make([]string, len(shortest))
+						for i, node := range shortest {
+							if name, ok := graph.IDToName(node.ID()); ok {
+								names[i] = name
+								g.AddNodeNamed(name)
+								g.AddInfo(name, graph.Info(name))
 							}
-							g.AddPath(NewFractionalWeightPath(names, unit.Weight(cost)))
 						}
+						g.AddPath(NewFractionalWeightPath(names, unit.Weight(1)))
 					}
 				}
 			}
@@ -155,18 +151,6 @@ func (graph *DirectedGraph) IsKnown(name string) bool {
 func (graph *DirectedGraph) AddPath(p Path) {
 	names := p.Names()
 	weights := p.Weights()
-
-	from := graph.NodeNamed(names[0])
-	to := graph.NodeNamed(names[len(names)-1])
-
-	// Maintain only the shortest path
-	if from != nil && to != nil {
-		shortest, _ := path.AStar(from, to, graph, nil)
-		nodes, _ := shortest.To(to.ID())
-		if len(nodes) != 0 && len(nodes) < len(names) {
-			return
-		}
-	}
 
 	for i := range weights {
 		from := names[i]
@@ -326,10 +310,9 @@ func (graph *DirectedGraph) NewWeightedLine(from, to gonumGraph.Node, weight flo
 }
 
 func (graph *DirectedGraph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine {
-	uID, _ := graph.NameToID(n1)
-	vID, _ := graph.NameToID(n2)
-	return graph.NewWeightedLine(graph.Node(uID), graph.Node(vID), float64(weight))
+	return graph.NewWeightedLine(graph.NodeNamed(n1), graph.NodeNamed(n2), float64(weight))
 }
 func (graph *DirectedGraph) SetWeightedLine(e gonumGraph.WeightedLine) {
+	fmt.Println(e)
 	graph.wug.SetWeightedLine(e)
 }
