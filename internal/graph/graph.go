@@ -1,8 +1,7 @@
 package graph
 
 import (
-	"fmt"
-
+	"github.com/rhagenson/relped/internal/io/demographics"
 	"github.com/rhagenson/relped/internal/io/parentage"
 	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/unit"
@@ -14,49 +13,71 @@ import (
 
 const lenUnknownNames = 6
 
-var _ gonumGraph.Graph = new(Graph)
-var _ gonumGraph.Undirected = new(Graph)
-var _ gonumGraph.Weighted = new(Graph)
+var _ gonumGraph.Graph = new(UndirectedGraph)
+var _ gonumGraph.Undirected = new(UndirectedGraph)
+var _ gonumGraph.Weighted = new(UndirectedGraph)
 
-// Graph has named nodes/vertexes
-type Graph struct {
-	wug      *multi.WeightedUndirectedGraph
-	nameToID map[string]int64 // TODO: make nametoInfo map[string]Info{ID: int64, known: bool, sex: Male|Female|Unknown, dam: int64, sire: int64}
-	knowns   []string
+var _ Graph = new(UndirectedGraph)
+var _ Graph = new(DirectedGraph)
+
+type Graph interface {
+	gonumGraph.Weighted
+	NewNode() gonumGraph.Node
+	EdgeBetweenNamed(n1, n2 string) gonumGraph.Edge
+	EdgeNamed(n1, n2 string) gonumGraph.Edge
+	HasEdgeBetweenNamed(n1, n2 string) bool
+	WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge
+	NodeNamed(name string) gonumGraph.Node
+	NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine
+	AddNodeAge(n string, age demographics.Age)
+	AddNodeSex(n string, sex demographics.Sex)
+	AddNodeParentage(n, dam, sire string)
+	IDToName(int64) (string, bool)
+	Edges() gonumGraph.Edges
+	NameToID(string) (int64, bool)
+	IsKnown(name string) bool
+	PruneToShortest(indvs []string) *UndirectedGraph
 }
 
-func NewGraph(indvs []string) *Graph {
-	return &Graph{
-		wug:      multi.NewWeightedUndirectedGraph(),
-		nameToID: make(map[string]int64, len(indvs)),
-		knowns:   indvs,
+// UndirectedGraph has named nodes/vertexes
+type UndirectedGraph struct {
+	wug        *multi.WeightedUndirectedGraph
+	nameToInfo map[string]info
+	knowns     []string
+}
+
+type info struct {
+	ID        int64
+	sex       demographics.Sex
+	age       demographics.Age
+	dam, sire string
+}
+
+type DirectedGraph struct {
+	wug        *multi.WeightedDirectedGraph
+	nameToInfo map[string]info
+	knowns     []string
+}
+
+func NewUndirectedGraph(indvs []string) *UndirectedGraph {
+	return &UndirectedGraph{
+		wug:        multi.NewWeightedUndirectedGraph(),
+		nameToInfo: make(map[string]info, len(indvs)),
+		knowns:     indvs,
 	}
 }
 
-func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput) *Graph {
+func NewDirectedGraph(indvs []string) *DirectedGraph {
+	return &DirectedGraph{
+		wug:        multi.NewWeightedDirectedGraph(),
+		nameToInfo: make(map[string]info, len(indvs)),
+		knowns:     indvs,
+	}
+}
+
+func newUndirectedGraph(in relatedness.CsvInput, maxDist relational.Degree) *UndirectedGraph {
 	indvs := in.Indvs()
-	g := NewGraph(indvs)
-
-	if pars != nil {
-		indvs := pars.Indvs()
-		for _, indv := range indvs {
-
-			degree := relational.First
-			relatedness := unit.Relatedness(1.0)
-			if degree <= maxDist {
-				if sire, ok := pars.Sire(indv); ok {
-					if path, err := NewRelationalWeightPath(sire, indv, degree, relatedness.Weight()); err == nil {
-						g.AddPath(path)
-					}
-				}
-				if dam, ok := pars.Dam(indv); ok {
-					if path, err := NewRelationalWeightPath(dam, indv, degree, relatedness.Weight()); err == nil {
-						g.AddPath(path)
-					}
-				}
-			}
-		}
-	}
+	g := NewUndirectedGraph(indvs)
 
 	for i := range indvs {
 		for j := range indvs {
@@ -78,8 +99,91 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 	return g
 }
 
-func (graph *Graph) PruneToShortest(indvs []string) *Graph {
-	g := NewGraph(graph.knowns)
+func newDirectedGraph(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput, dems demographics.CsvInput) *DirectedGraph {
+	indvs := in.Indvs()
+	g := NewDirectedGraph(indvs)
+
+	// Add known parentage
+	for _, indv := range pars.Indvs() {
+		degree := relational.First
+		relatedness := unit.Relatedness(1.0)
+		if degree <= maxDist {
+			if sire, ok := pars.Sire(indv); ok {
+				if path, err := NewRelationalWeightPath(sire, indv, degree, relatedness.Weight()); err == nil {
+					g.AddPath(path)
+				}
+			}
+			if dam, ok := pars.Dam(indv); ok {
+				if path, err := NewRelationalWeightPath(dam, indv, degree, relatedness.Weight()); err == nil {
+					g.AddPath(path)
+				}
+			}
+		}
+	}
+
+	// Add unknowns
+	for i := range indvs {
+		for j := range indvs {
+			if i == j {
+				continue
+			} else {
+				from := indvs[i]
+				fromAge, fromAgeOk := dems.Age(from)
+				to := indvs[j]
+				toAge, toAgeOk := dems.Age(to)
+				degree := in.RelDistance(from, to)
+				relatedness := in.Relatedness(from, to)
+				if degree <= maxDist {
+					if fromAgeOk && toAgeOk {
+						if fromAge >= toAge {
+							if path, err := NewRelationalWeightPath(from, to, degree, relatedness.Weight()); err == nil {
+								g.AddPath(path)
+							}
+						} else {
+							if path, err := NewRelationalWeightPath(to, from, degree, relatedness.Weight()); err == nil {
+								g.AddPath(path)
+							}
+						}
+					} else {
+						if path, err := NewRelationalWeightPath(to, from, degree, relatedness.Weight()); err == nil {
+							g.AddPath(path)
+						}
+					}
+				}
+
+				// Add demographics
+				g.AddNodeAge(from, fromAge)
+				g.AddNodeAge(to, toAge)
+				if sex, ok := dems.Sex(from); ok {
+					g.AddNodeSex(from, sex)
+				}
+				if sex, ok := dems.Sex(to); ok {
+					g.AddNodeSex(to, sex)
+				}
+			}
+		}
+	}
+
+	return g
+}
+
+func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput, dems demographics.CsvInput) Graph {
+	if pars == nil && dems == nil {
+		return newUndirectedGraph(in, maxDist)
+	}
+	return newDirectedGraph(in, maxDist, pars, dems)
+}
+
+func (graph *UndirectedGraph) PruneToShortest(indvs []string) *UndirectedGraph {
+	return PruneToShortest(graph, indvs)
+}
+
+func (graph *DirectedGraph) PruneToShortest(indvs []string) *UndirectedGraph {
+	return PruneToShortest(graph, indvs)
+}
+
+func PruneToShortest(graph Graph, indvs []string) *UndirectedGraph {
+	g := NewUndirectedGraph(indvs)
 	for i := 0; i < len(indvs); i++ {
 		if src := graph.NodeNamed(indvs[i]); src != nil {
 			if shortest, ok := path.BellmanFordFrom(src, graph); ok {
@@ -104,7 +208,7 @@ func (graph *Graph) PruneToShortest(indvs []string) *Graph {
 	return g
 }
 
-func (graph *Graph) IsKnown(name string) bool {
+func (graph *UndirectedGraph) IsKnown(name string) bool {
 	for i := range graph.knowns {
 		if name == graph.knowns[i] {
 			return true
@@ -113,7 +217,30 @@ func (graph *Graph) IsKnown(name string) bool {
 	return false
 }
 
-func (self *Graph) AddPath(p Path) {
+func (graph *DirectedGraph) IsKnown(name string) bool {
+	for i := range graph.knowns {
+		if name == graph.knowns[i] {
+			return true
+		}
+	}
+	return false
+}
+
+func (self *UndirectedGraph) AddPath(p Path) {
+	names := p.Names()
+	weights := p.Weights()
+
+	for i := range weights {
+		from := names[i]
+		to := names[i+1]
+		weight := weights[i]
+		self.AddNodeNamed(from)
+		self.AddNodeNamed(to)
+		self.SetWeightedLine(self.NewWeightedLineNamed(from, to, weight))
+	}
+}
+
+func (self *DirectedGraph) AddPath(p Path) {
 	names := p.Names()
 	weights := p.Weights()
 
@@ -129,9 +256,20 @@ func (self *Graph) AddPath(p Path) {
 
 // IDToName converts the id to its corresponding node name
 // Returns false if the node does not exist
-func (graph *Graph) IDToName(id int64) (string, bool) {
-	for name, nid := range graph.nameToID {
-		if nid == id {
+func (graph *UndirectedGraph) IDToName(id int64) (string, bool) {
+	for name, info := range graph.nameToInfo {
+		if info.ID == id {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+// IDToName converts the id to its corresponding node name
+// Returns false if the node does not exist
+func (graph *DirectedGraph) IDToName(id int64) (string, bool) {
+	for name, info := range graph.nameToInfo {
+		if info.ID == id {
 			return name, true
 		}
 	}
@@ -140,13 +278,20 @@ func (graph *Graph) IDToName(id int64) (string, bool) {
 
 // NameToID converts the name to its corresponding node ID
 // Returns false if the node does not exist
-func (graph *Graph) NameToID(name string) (int64, bool) {
-	id, ok := graph.nameToID[name]
-	return id, ok
+func (graph *UndirectedGraph) NameToID(name string) (int64, bool) {
+	info, ok := graph.nameToInfo[name]
+	return info.ID, ok
 }
 
-func (graph *Graph) RmDisconnected() {
-	for name := range graph.nameToID {
+// NameToID converts the name to its corresponding node ID
+// Returns false if the node does not exist
+func (graph *DirectedGraph) NameToID(name string) (int64, bool) {
+	info, ok := graph.nameToInfo[name]
+	return info.ID, ok
+}
+
+func (graph *UndirectedGraph) RmDisconnected() {
+	for name := range graph.nameToInfo {
 		nodes := graph.FromNamed(name)
 		if nodes.Len() == 0 {
 			graph.RemoveNodeNamed(name)
@@ -154,93 +299,213 @@ func (graph *Graph) RmDisconnected() {
 	}
 }
 
-func (graph *Graph) Weight(xid, yid int64) (w float64, ok bool) {
+func (graph *UndirectedGraph) Weight(xid, yid int64) (w float64, ok bool) {
 	return graph.wug.Weight(xid, yid)
 }
 
-func (graph *Graph) WeightNamed(n1, n2 string) (w float64, ok bool) {
-	xid := graph.nameToID[n1]
-	yid := graph.nameToID[n2]
-	return graph.Weight(xid, yid)
+func (graph *DirectedGraph) Weight(xid, yid int64) (w float64, ok bool) {
+	return graph.wug.Weight(xid, yid)
 }
 
-func (graph *Graph) From(id int64) gonumGraph.Nodes {
+func (graph *UndirectedGraph) AddNodeParentage(n, dam, sire string) {
+	info := graph.nameToInfo[n]
+	info.dam = dam
+	info.sire = sire
+	graph.nameToInfo[n] = info
+}
+
+func (graph *DirectedGraph) AddNodeParentage(n, dam, sire string) {
+	info := graph.nameToInfo[n]
+	info.dam = dam
+	info.sire = sire
+	graph.nameToInfo[n] = info
+}
+
+func (graph *UndirectedGraph) AddNodeAge(n string, age demographics.Age) {
+	info := graph.nameToInfo[n]
+	info.age = age
+	graph.nameToInfo[n] = info
+}
+func (graph *UndirectedGraph) AddNodeSex(n string, sex demographics.Sex) {
+	info := graph.nameToInfo[n]
+	info.sex = sex
+	graph.nameToInfo[n] = info
+}
+
+func (graph *DirectedGraph) AddNodeAge(n string, age demographics.Age) {
+	info := graph.nameToInfo[n]
+	info.age = age
+	graph.nameToInfo[n] = info
+}
+func (graph *DirectedGraph) AddNodeSex(n string, sex demographics.Sex) {
+	info := graph.nameToInfo[n]
+	info.sex = sex
+	graph.nameToInfo[n] = info
+}
+
+func (graph *UndirectedGraph) WeightNamed(n1, n2 string) (w float64, ok bool) {
+	xinfo := graph.nameToInfo[n1]
+	yinfo := graph.nameToInfo[n2]
+	return graph.Weight(xinfo.ID, yinfo.ID)
+}
+
+func (graph *UndirectedGraph) From(id int64) gonumGraph.Nodes {
 	return graph.wug.From(id)
 }
 
-func (graph *Graph) FromNamed(name string) gonumGraph.Nodes {
-	if id, ok := graph.nameToID[name]; ok {
-		return graph.From(id)
+func (graph *DirectedGraph) From(id int64) gonumGraph.Nodes {
+	return graph.wug.From(id)
+}
+
+func (graph *UndirectedGraph) FromNamed(name string) gonumGraph.Nodes {
+	if info, ok := graph.nameToInfo[name]; ok {
+		return graph.From(info.ID)
 	}
 	return gonumGraph.Empty
 }
 
-func (graph *Graph) RemoveNode(id int64) {
+func (graph *DirectedGraph) FromNamed(name string) gonumGraph.Nodes {
+	if info, ok := graph.nameToInfo[name]; ok {
+		return graph.From(info.ID)
+	}
+	return gonumGraph.Empty
+}
+
+func (graph *UndirectedGraph) RemoveNode(id int64) {
 	graph.wug.RemoveNode(id)
 }
 
-func (graph *Graph) RemoveNodeNamed(name string) {
-	if id, ok := graph.nameToID[name]; ok {
-		graph.RemoveNode(id)
-		delete(graph.nameToID, name)
+func (graph *DirectedGraph) RemoveNode(id int64) {
+	graph.wug.RemoveNode(id)
+}
+
+func (graph *UndirectedGraph) RemoveNodeNamed(name string) {
+	if info, ok := graph.nameToInfo[name]; ok {
+		graph.RemoveNode(info.ID)
+		delete(graph.nameToInfo, name)
 	}
 }
 
-func (graph *Graph) AddNode(n gonumGraph.Node) {
+func (graph *DirectedGraph) RemoveNodeNamed(name string) {
+	if info, ok := graph.nameToInfo[name]; ok {
+		graph.RemoveNode(info.ID)
+		delete(graph.nameToInfo, name)
+	}
+}
+
+func (graph *UndirectedGraph) AddNode(n gonumGraph.Node) {
 	graph.wug.AddNode(n)
 }
 
-func (graph *Graph) Nodes() gonumGraph.Nodes {
+func (graph *DirectedGraph) AddNode(n gonumGraph.Node) {
+	graph.wug.AddNode(n)
+}
+
+func (graph *UndirectedGraph) Nodes() gonumGraph.Nodes {
 	return graph.wug.Nodes()
 }
 
-func (graph *Graph) AddNodeNamed(name string) {
-	if _, ok := graph.nameToID[name]; !ok {
+func (graph *DirectedGraph) Nodes() gonumGraph.Nodes {
+	return graph.wug.Nodes()
+}
+
+func (graph *UndirectedGraph) AddNodeNamed(name string) {
+	if _, ok := graph.nameToInfo[name]; !ok {
 		n := graph.NewNode()
 		graph.AddNode(n)
-		graph.nameToID[name] = n.ID()
+		info := graph.nameToInfo[name]
+		info.ID = n.ID()
+		graph.nameToInfo[name] = info
 	}
 }
 
-func (graph *Graph) NewNode() gonumGraph.Node {
+func (graph *DirectedGraph) AddNodeNamed(name string) {
+	if _, ok := graph.nameToInfo[name]; !ok {
+		n := graph.NewNode()
+		graph.AddNode(n)
+		info := graph.nameToInfo[name]
+		info.ID = n.ID()
+		graph.nameToInfo[name] = info
+	}
+}
+
+func (graph *UndirectedGraph) NewNode() gonumGraph.Node {
 	return graph.wug.NewNode()
 }
 
-func (graph *Graph) Edge(uid, vid int64) gonumGraph.Edge {
+func (graph *DirectedGraph) NewNode() gonumGraph.Node {
+	return graph.wug.NewNode()
+}
+
+func (graph *UndirectedGraph) Edge(uid, vid int64) gonumGraph.Edge {
 	return graph.wug.Edge(uid, vid)
 }
 
-func (graph *Graph) EdgeNamed(n1, n2 string) gonumGraph.Edge {
+func (graph *DirectedGraph) Edge(uid, vid int64) gonumGraph.Edge {
+	return graph.wug.Edge(uid, vid)
+}
+
+func (graph *UndirectedGraph) EdgeNamed(n1, n2 string) gonumGraph.Edge {
 	uID, _ := graph.NameToID(n1)
 	vID, _ := graph.NameToID(n2)
 	return graph.Edge(uID, vID)
 }
 
-func (graph *Graph) HasEdgeBetween(xid, yid int64) bool {
+func (graph *DirectedGraph) EdgeNamed(n1, n2 string) gonumGraph.Edge {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.Edge(uID, vID)
+}
+
+func (graph *UndirectedGraph) HasEdgeBetween(xid, yid int64) bool {
 	return graph.wug.HasEdgeBetween(xid, yid)
 }
 
-func (graph *Graph) EdgeBetween(xid, yid int64) gonumGraph.Edge {
+func (graph *DirectedGraph) HasEdgeBetween(xid, yid int64) bool {
+	return graph.wug.HasEdgeBetween(xid, yid)
+}
+
+func (graph *UndirectedGraph) EdgeBetween(xid, yid int64) gonumGraph.Edge {
 	return graph.wug.EdgeBetween(xid, yid)
 }
 
-func (graph *Graph) EdgeBetweenNamed(n1, n2 string) gonumGraph.Edge {
+func (graph *DirectedGraph) EdgeBetween(xid, yid int64) gonumGraph.Edge {
+	return graph.wug.Edge(xid, yid)
+}
+
+func (graph *UndirectedGraph) EdgeBetweenNamed(n1, n2 string) gonumGraph.Edge {
 	uID, _ := graph.NameToID(n1)
 	vID, _ := graph.NameToID(n2)
 	return graph.EdgeBetween(uID, vID)
 }
 
-func (graph *Graph) HasEdgeBetweenNamed(n1, n2 string) bool {
+func (graph *DirectedGraph) EdgeBetweenNamed(n1, n2 string) gonumGraph.Edge {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.EdgeBetween(uID, vID)
+}
+
+func (graph *UndirectedGraph) HasEdgeBetweenNamed(n1, n2 string) bool {
 	uID, _ := graph.NameToID(n1)
 	vID, _ := graph.NameToID(n2)
 	return graph.HasEdgeBetween(uID, vID)
 }
 
-func (graph *Graph) WeightedEdge(uid, vid int64) gonumGraph.WeightedEdge {
+func (graph *DirectedGraph) HasEdgeBetweenNamed(n1, n2 string) bool {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.HasEdgeBetween(uID, vID)
+}
+
+func (graph *UndirectedGraph) WeightedEdge(uid, vid int64) gonumGraph.WeightedEdge {
 	return graph.wug.WeightedEdge(uid, vid)
 }
 
-func (graph *Graph) WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge {
+func (graph *DirectedGraph) WeightedEdge(uid, vid int64) gonumGraph.WeightedEdge {
+	return graph.wug.WeightedEdge(uid, vid)
+}
+
+func (graph *UndirectedGraph) WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge {
 	uID, uOK := graph.NameToID(n1)
 	vID, vOK := graph.NameToID(n2)
 	if uOK && vOK {
@@ -249,41 +514,73 @@ func (graph *Graph) WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge {
 	return nil
 }
 
-func (graph *Graph) Node(id int64) gonumGraph.Node {
+func (graph *DirectedGraph) WeightedEdgeNamed(n1, n2 string) gonumGraph.WeightedEdge {
+	uID, uOK := graph.NameToID(n1)
+	vID, vOK := graph.NameToID(n2)
+	if uOK && vOK {
+		return graph.wug.WeightedEdge(uID, vID)
+	}
+	return nil
+}
+
+func (graph *UndirectedGraph) Node(id int64) gonumGraph.Node {
 	return graph.wug.Node(id)
 }
 
-func (graph *Graph) NodeNamed(name string) gonumGraph.Node {
+func (graph *DirectedGraph) Node(id int64) gonumGraph.Node {
+	return graph.wug.Node(id)
+}
+
+func (graph *UndirectedGraph) NodeNamed(name string) gonumGraph.Node {
 	if id, ok := graph.NameToID(name); ok {
 		return graph.wug.Node(id)
 	}
 	return gonumGraph.Empty.Node()
 }
 
-func (graph *Graph) Edges() gonumGraph.Edges {
+func (graph *DirectedGraph) NodeNamed(name string) gonumGraph.Node {
+	if id, ok := graph.NameToID(name); ok {
+		return graph.wug.Node(id)
+	}
+	return gonumGraph.Empty.Node()
+}
+
+func (graph *UndirectedGraph) Edges() gonumGraph.Edges {
 	return graph.wug.Edges()
 }
 
-func (graph *Graph) WeightedEdges() gonumGraph.WeightedEdges {
+func (graph *DirectedGraph) Edges() gonumGraph.Edges {
+	return graph.wug.Edges()
+}
+
+func (graph *UndirectedGraph) WeightedEdges() gonumGraph.WeightedEdges {
 	return graph.wug.WeightedEdges()
 }
 
-func (graph *Graph) NewWeightedLine(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedLine {
+func (graph *UndirectedGraph) NewWeightedLine(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedLine {
 	return graph.wug.NewWeightedLine(from, to, weight)
 }
 
-func (graph *Graph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine {
+func (graph *DirectedGraph) NewWeightedLine(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedLine {
+	return graph.wug.NewWeightedLine(from, to, weight)
+}
+
+func (graph *UndirectedGraph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine {
 	uID, _ := graph.NameToID(n1)
 	vID, _ := graph.NameToID(n2)
 	return graph.NewWeightedLine(graph.Node(uID), graph.Node(vID), float64(weight))
 }
 
-func (graph *Graph) SetWeightedLine(e gonumGraph.WeightedLine) {
+func (graph *DirectedGraph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine {
+	uID, _ := graph.NameToID(n1)
+	vID, _ := graph.NameToID(n2)
+	return graph.NewWeightedLine(graph.Node(uID), graph.Node(vID), float64(weight))
+}
+
+func (graph *UndirectedGraph) SetWeightedLine(e gonumGraph.WeightedLine) {
 	graph.wug.SetWeightedLine(e)
 }
 
-func (graph *Graph) String() string {
-	nodes := graph.wug.Nodes()
-	edges := graph.wug.Edges()
-	return fmt.Sprintf("Graph:\n\tNodes(%d):\n\t%v\n\tEdges(%d):\n\t%t\nMap:\n%v\nmap[527]==%n\n", nodes.Len(), nodes, edges.Len(), edges, graph.nameToID, graph.nameToID["527"])
+func (graph *DirectedGraph) SetWeightedLine(e gonumGraph.WeightedLine) {
+	graph.wug.SetWeightedLine(e)
 }

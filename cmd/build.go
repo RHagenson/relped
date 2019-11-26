@@ -143,8 +143,8 @@ func build() {
 		log.Fatalf("The demographics and parentage files disagree:\n%s", msg)
 	}
 
-	// Build graph
-	g := graph.NewGraphFromCsvInput(input, maxDist, pars)
+	// Build graph (directed if pars != nil or dems != nil)
+	g := graph.NewGraphFromCsvInput(input, maxDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns
 	indvs := input.Indvs()

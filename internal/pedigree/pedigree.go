@@ -54,7 +54,7 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvInput) (*Pedigree, []string) {
+func NewPedigreeFromGraph(g graph.Graph, indvs []string, dems demographics.CsvInput) (*Pedigree, []string) {
 	ped := NewPedigree()
 	mapped := mapset.NewSet()
 	var unmapped []string
@@ -68,6 +68,7 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		fromKnown := g.IsKnown(from)
 		toKnown := g.IsKnown(to)
 		if fromKnown {
+			mapped.Add(from)
 			if dems != nil {
 				if fromSex, ok := dems.Sex(from); ok {
 					ped.AddKnownIndv(from, fromSex)
@@ -85,6 +86,7 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		}
 
 		if toKnown {
+			mapped.Add(to)
 			if dems != nil {
 				if toSex, ok := dems.Sex(to); ok {
 					ped.AddKnownIndv(to, toSex)
@@ -102,12 +104,20 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		}
 
 		if fromKnown && toKnown {
-			ped.AddKnownRel(from, to)
+			fromAge, fromOk := dems.Age(from)
+			toAge, toOk := dems.Age(to)
+			if fromOk && toOk {
+				if fromAge >= toAge {
+					ped.AddKnownRel(from, to)
+				} else {
+					ped.AddKnownRel(to, from)
+				}
+			} else {
+				ped.AddKnownRel(from, to)
+			}
 		} else {
 			ped.AddUnknownRel(from, to)
 		}
-		mapped.Add(from)
-		mapped.Add(to)
 	}
 
 	for _, indv := range indvs {
