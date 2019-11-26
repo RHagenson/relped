@@ -41,7 +41,7 @@ type Pedigree struct {
 	ranks map[demographics.Age][]string
 }
 
-func NewPedigree() *Pedigree {
+func NewUndirectedPedigree() *Pedigree {
 	g := gographviz.NewEscape()
 	g.SetDir(false)
 	g.SetName("pedigree")
@@ -54,8 +54,28 @@ func NewPedigree() *Pedigree {
 	}
 }
 
+func NewDirectedPedigree() *Pedigree {
+	g := gographviz.NewEscape()
+	g.SetDir(true)
+	g.SetName("pedigree")
+	for attr, val := range graphAttrs {
+		g.AddAttr("pedigree", attr, val)
+	}
+	return &Pedigree{
+		g:     g,
+		ranks: make(map[demographics.Age][]string),
+	}
+}
+
 func NewPedigreeFromGraph(g graph.Graph, indvs []string, dems demographics.CsvInput) (*Pedigree, []string) {
-	ped := NewPedigree()
+	var ped *Pedigree
+	switch g {
+	case g.(*graph.DirectedGraph):
+		ped = NewDirectedPedigree()
+	case g.(*graph.UndirectedGraph):
+		ped = NewUndirectedPedigree()
+	}
+
 	mapped := mapset.NewSet()
 	var unmapped []string
 
