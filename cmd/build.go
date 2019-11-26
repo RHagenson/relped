@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -144,6 +145,7 @@ func build() {
 	}
 
 	// Build graph (directed if pars != nil or dems != nil)
+	fmt.Println(pars, dems)
 	g := graph.NewGraphFromCsvInput(input, maxDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns

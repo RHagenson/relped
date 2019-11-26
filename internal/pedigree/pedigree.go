@@ -34,6 +34,7 @@ var (
 		"rankdir": "TB",
 		"splines": "ortho",
 		"ratio":   "auto",
+		"newrank": "true",
 	}
 )
 
