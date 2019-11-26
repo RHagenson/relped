@@ -8,6 +8,7 @@ import (
 	mapset "github.com/deckarep/golang-set"
 	"github.com/rhagenson/relped/internal/graph"
 	"github.com/rhagenson/relped/internal/io/demographics"
+	log "github.com/sirupsen/logrus"
 )
 
 // "Constant" maps for attributes
@@ -71,8 +72,10 @@ func NewPedigreeFromGraph(g graph.Graph, indvs []string, dems demographics.CsvIn
 	var ped *Pedigree
 	switch g {
 	case g.(*graph.DirectedGraph):
+		log.Infof("Built directed pedigree\n")
 		ped = NewDirectedPedigree()
 	case g.(*graph.UndirectedGraph):
+		log.Infof("Built undirected pedigree\n")
 		ped = NewUndirectedPedigree()
 	}
 
