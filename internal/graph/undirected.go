@@ -103,17 +103,29 @@ func (graph *UndirectedGraph) IsKnown(name string) bool {
 	return false
 }
 
-func (self *UndirectedGraph) AddPath(p Path) {
+func (graph *UndirectedGraph) AddPath(p Path) {
 	names := p.Names()
 	weights := p.Weights()
+
+	from := graph.NodeNamed(names[0])
+	to := graph.NodeNamed(names[len(names)-1])
+
+	// Maintain only the shortest path
+	if from != nil && to != nil {
+		shortest, _ := path.AStar(from, to, graph, nil)
+		nodes, _ := shortest.To(to.ID())
+		if len(nodes) != 0 && len(nodes) < len(names) {
+			return
+		}
+	}
 
 	for i := range weights {
 		from := names[i]
 		to := names[i+1]
 		weight := weights[i]
-		self.AddNodeNamed(from)
-		self.AddNodeNamed(to)
-		self.SetWeightedLine(self.NewWeightedLineNamed(from, to, weight))
+		graph.AddNodeNamed(from)
+		graph.AddNodeNamed(to)
+		graph.SetWeightedLine(graph.NewWeightedLineNamed(from, to, weight))
 	}
 }
 
