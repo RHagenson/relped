@@ -91,9 +91,14 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string) (*Pedigree, []string) 
 		}
 
 		if fromKnown && toKnown {
-			if g.Info(from).Age > g.Info(to).Age {
+			switch {
+			case g.Info(to).Dam == from:
 				ped.AddKnownRel(from, to)
-			} else {
+			case g.Info(to).Sire == from:
+				ped.AddKnownRel(from, to)
+			case g.Info(from).Age > g.Info(to).Age:
+				ped.AddKnownRel(from, to)
+			default:
 				ped.AddKnownRel(to, from)
 			}
 		} else {
