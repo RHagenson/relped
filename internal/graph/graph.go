@@ -3,6 +3,8 @@ package graph
 import (
 	"fmt"
 
+	mapset "github.com/deckarep/golang-set"
+	"github.com/rhagenson/relped/internal/io/demographics"
 	"github.com/rhagenson/relped/internal/io/parentage"
 	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/unit"
@@ -20,44 +22,31 @@ var _ gonumGraph.Weighted = new(Graph)
 
 // Graph has named nodes/vertexes
 type Graph struct {
-	wug      *multi.WeightedUndirectedGraph
-	nameToID map[string]int64 // TODO: make nametoInfo map[string]Info{ID: int64, known: bool, sex: Male|Female|Unknown, dam: int64, sire: int64}
-	knowns   []string
+	wug        *multi.WeightedUndirectedGraph
+	nameToInfo map[string]Info
+	knowns     []string
+}
+
+type Info struct {
+	ID        int64
+	Sex       demographics.Sex
+	Age       demographics.Age
+	Dam, Sire string
 }
 
 func NewGraph(indvs []string) *Graph {
 	return &Graph{
-		wug:      multi.NewWeightedUndirectedGraph(),
-		nameToID: make(map[string]int64, len(indvs)),
-		knowns:   indvs,
+		wug:        multi.NewWeightedUndirectedGraph(),
+		nameToInfo: make(map[string]Info, len(indvs)),
+		knowns:     indvs,
 	}
 }
 
-func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput) *Graph {
+func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput, dems demographics.CsvInput) *Graph {
 	indvs := in.Indvs()
 	g := NewGraph(indvs)
 
-	if pars != nil {
-		indvs := pars.Indvs()
-		for _, indv := range indvs {
-
-			degree := relational.First
-			relatedness := unit.Relatedness(1.0)
-			if degree <= maxDist {
-				if sire, ok := pars.Sire(indv); ok {
-					if path, err := NewRelationalWeightPath(sire, indv, degree, relatedness.Weight()); err == nil {
-						g.AddPath(path)
-					}
-				}
-				if dam, ok := pars.Dam(indv); ok {
-					if path, err := NewRelationalWeightPath(dam, indv, degree, relatedness.Weight()); err == nil {
-						g.AddPath(path)
-					}
-				}
-			}
-		}
-	}
-
+	// Add any unknowns to link knowns by relational distance
 	for i := range indvs {
 		for j := range indvs {
 			if i == j {
@@ -75,33 +64,97 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 			}
 		}
 	}
+
+	// Add parentage
+	if pars != nil {
+		children := pars.Indvs()
+		for _, child := range children {
+			degree := relational.First
+			relatedness := unit.Relatedness(1.0)
+			if degree <= maxDist {
+				if sire, ok := pars.Sire(child); ok {
+					g.AddParentage(child, "", sire)
+					line := g.NewWeightedLineNamed(sire, child, relatedness.Weight())
+					g.SetWeightedLine(line)
+				}
+				if dam, ok := pars.Dam(child); ok {
+					g.AddParentage(child, "", dam)
+					line := g.NewWeightedLineNamed(dam, child, relatedness.Weight())
+					g.SetWeightedLine(line)
+				}
+			}
+		}
+	}
+
+	// Add demographics
+	if dems != nil {
+		for _, indv := range indvs {
+			if age, ok := dems.Age(indv); ok {
+				g.AddAge(indv, age)
+			}
+			if sex, ok := dems.Sex(indv); ok {
+				g.AddSex(indv, sex)
+			}
+		}
+	}
+
 	return g
 }
 
-func (graph *Graph) PruneToShortest(indvs []string) *Graph {
-	g := NewGraph(graph.knowns)
+func (graph *Graph) AddAge(name string, age demographics.Age) {
+	info := graph.nameToInfo[name]
+	info.Age = age
+	graph.nameToInfo[name] = info
+}
+func (graph *Graph) AddSex(name string, sex demographics.Sex) {
+	info := graph.nameToInfo[name]
+	info.Sex = sex
+	graph.nameToInfo[name] = info
+}
+func (graph *Graph) AddParentage(name, dam, sire string) {
+	info := graph.nameToInfo[name]
+	if dam != "" {
+		info.Dam = dam
+	}
+	if sire != "" {
+		info.Sire = sire
+	}
+	graph.nameToInfo[name] = info
+}
+func (graph *Graph) Info(name string) Info {
+	return graph.nameToInfo[name]
+}
+func (graph *Graph) AddInfo(name string, info Info) {
+	graph.nameToInfo[name] = info
+}
+
+func (graph *Graph) PruneToShortest() *Graph {
+	indvs := graph.knowns
+	connected := mapset.NewSet()
+
 	for i := 0; i < len(indvs); i++ {
 		if src := graph.NodeNamed(indvs[i]); src != nil {
 			if shortest, ok := path.BellmanFordFrom(src, graph); ok {
 				for j := i + 1; j < len(indvs); j++ {
 					if dest := graph.NodeNamed(indvs[j]); dest != nil {
-						nodes, cost := shortest.To(dest.ID())
-						if len(nodes) != 0 {
-							names := make([]string, len(nodes))
-							for i, node := range nodes {
-								if name, ok := graph.IDToName(node.ID()); ok {
-									names[i] = name
-								}
-							}
-							path := NewFractionalWeightPath(names, unit.Weight(cost))
-							g.AddPath(path)
+						nodes, _ := shortest.To(dest.ID())
+						for _, node := range nodes {
+							connected.Add(node)
 						}
 					}
 				}
 			}
 		}
 	}
-	return g
+
+	iter := graph.Nodes()
+	for iter.Next() {
+		n := iter.Node()
+		if !connected.Contains(n) {
+			graph.RemoveNode(n.ID())
+		}
+	}
+	return graph
 }
 
 func (graph *Graph) IsKnown(name string) bool {
@@ -113,7 +166,7 @@ func (graph *Graph) IsKnown(name string) bool {
 	return false
 }
 
-func (self *Graph) AddPath(p Path) {
+func (graph *Graph) AddPath(p Path) {
 	names := p.Names()
 	weights := p.Weights()
 
@@ -121,17 +174,18 @@ func (self *Graph) AddPath(p Path) {
 		from := names[i]
 		to := names[i+1]
 		weight := weights[i]
-		self.AddNodeNamed(from)
-		self.AddNodeNamed(to)
-		self.SetWeightedLine(self.NewWeightedLineNamed(from, to, weight))
+		graph.AddNodeNamed(from)
+		graph.AddNodeNamed(to)
+		line := graph.NewWeightedLineNamed(from, to, weight)
+		graph.SetWeightedLine(line)
 	}
 }
 
 // IDToName converts the id to its corresponding node name
 // Returns false if the node does not exist
 func (graph *Graph) IDToName(id int64) (string, bool) {
-	for name, nid := range graph.nameToID {
-		if nid == id {
+	for name, info := range graph.nameToInfo {
+		if info.ID == id {
 			return name, true
 		}
 	}
@@ -141,12 +195,12 @@ func (graph *Graph) IDToName(id int64) (string, bool) {
 // NameToID converts the name to its corresponding node ID
 // Returns false if the node does not exist
 func (graph *Graph) NameToID(name string) (int64, bool) {
-	id, ok := graph.nameToID[name]
-	return id, ok
+	info, ok := graph.nameToInfo[name]
+	return info.ID, ok
 }
 
 func (graph *Graph) RmDisconnected() {
-	for name := range graph.nameToID {
+	for name := range graph.nameToInfo {
 		nodes := graph.FromNamed(name)
 		if nodes.Len() == 0 {
 			graph.RemoveNodeNamed(name)
@@ -159,9 +213,9 @@ func (graph *Graph) Weight(xid, yid int64) (w float64, ok bool) {
 }
 
 func (graph *Graph) WeightNamed(n1, n2 string) (w float64, ok bool) {
-	xid := graph.nameToID[n1]
-	yid := graph.nameToID[n2]
-	return graph.Weight(xid, yid)
+	xinfo := graph.nameToInfo[n1]
+	yinfo := graph.nameToInfo[n2]
+	return graph.Weight(xinfo.ID, yinfo.ID)
 }
 
 func (graph *Graph) From(id int64) gonumGraph.Nodes {
@@ -169,8 +223,8 @@ func (graph *Graph) From(id int64) gonumGraph.Nodes {
 }
 
 func (graph *Graph) FromNamed(name string) gonumGraph.Nodes {
-	if id, ok := graph.nameToID[name]; ok {
-		return graph.From(id)
+	if info, ok := graph.nameToInfo[name]; ok {
+		return graph.From(info.ID)
 	}
 	return gonumGraph.Empty
 }
@@ -180,9 +234,9 @@ func (graph *Graph) RemoveNode(id int64) {
 }
 
 func (graph *Graph) RemoveNodeNamed(name string) {
-	if id, ok := graph.nameToID[name]; ok {
-		graph.RemoveNode(id)
-		delete(graph.nameToID, name)
+	if info, ok := graph.nameToInfo[name]; ok {
+		graph.RemoveNode(info.ID)
+		delete(graph.nameToInfo, name)
 	}
 }
 
@@ -195,10 +249,12 @@ func (graph *Graph) Nodes() gonumGraph.Nodes {
 }
 
 func (graph *Graph) AddNodeNamed(name string) {
-	if _, ok := graph.nameToID[name]; !ok {
+	if _, ok := graph.nameToInfo[name]; !ok {
 		n := graph.NewNode()
 		graph.AddNode(n)
-		graph.nameToID[name] = n.ID()
+		info := graph.nameToInfo[name]
+		info.ID = n.ID()
+		graph.nameToInfo[name] = info
 	}
 }
 
@@ -285,5 +341,5 @@ func (graph *Graph) SetWeightedLine(e gonumGraph.WeightedLine) {
 func (graph *Graph) String() string {
 	nodes := graph.wug.Nodes()
 	edges := graph.wug.Edges()
-	return fmt.Sprintf("Graph:\n\tNodes(%d):\n\t%v\n\tEdges(%d):\n\t%t\nMap:\n%v\nmap[527]==%n\n", nodes.Len(), nodes, edges.Len(), edges, graph.nameToID, graph.nameToID["527"])
+	return fmt.Sprintf("Graph:\n\tNodes(%d):\n\t%v\n\tEdges(%d):\n\t%t\nMap:\n%v\nmap[527]==%v\n", nodes.Len(), nodes, edges.Len(), edges, graph.nameToInfo, graph.nameToInfo["527"])
 }

@@ -33,6 +33,7 @@ var (
 		"rankdir": "TB",
 		"splines": "ortho",
 		"ratio":   "auto",
+		"newrank": "true",
 	}
 )
 
@@ -43,7 +44,7 @@ type Pedigree struct {
 
 func NewPedigree() *Pedigree {
 	g := gographviz.NewEscape()
-	g.SetDir(false)
+	g.SetDir(true)
 	g.SetName("pedigree")
 	for attr, val := range graphAttrs {
 		g.AddAttr("pedigree", attr, val)
@@ -54,7 +55,7 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvInput) (*Pedigree, []string) {
+func NewPedigreeFromGraph(g *graph.Graph, indvs []string) (*Pedigree, []string) {
 	ped := NewPedigree()
 	mapped := mapset.NewSet()
 	var unmapped []string
@@ -68,15 +69,9 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		fromKnown := g.IsKnown(from)
 		toKnown := g.IsKnown(to)
 		if fromKnown {
-			if dems != nil {
-				if fromSex, ok := dems.Sex(from); ok {
-					ped.AddKnownIndv(from, fromSex)
-				} else {
-					ped.AddKnownIndv(from, demographics.Unknown)
-				}
-				if fromAge, ok := dems.Age(from); ok {
-					ped.AddToRank(fromAge, from)
-				}
+			mapped.Add(from)
+			if g.Info(from).Sex != demographics.Unknown {
+				ped.AddKnownIndv(from, g.Info(from).Sex)
 			} else {
 				ped.AddKnownIndv(from, demographics.Unknown)
 			}
@@ -85,15 +80,9 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		}
 
 		if toKnown {
-			if dems != nil {
-				if toSex, ok := dems.Sex(to); ok {
-					ped.AddKnownIndv(to, toSex)
-				} else {
-					ped.AddKnownIndv(to, demographics.Unknown)
-				}
-				if toAge, ok := dems.Age(to); ok {
-					ped.AddToRank(toAge, to)
-				}
+			mapped.Add(to)
+			if g.Info(to).Sex != demographics.Unknown {
+				ped.AddKnownIndv(to, g.Info(to).Sex)
 			} else {
 				ped.AddKnownIndv(to, demographics.Unknown)
 			}
@@ -102,23 +91,28 @@ func NewPedigreeFromGraph(g *graph.Graph, indvs []string, dems demographics.CsvI
 		}
 
 		if fromKnown && toKnown {
-			ped.AddKnownRel(from, to)
+			if g.Info(from).Age > g.Info(to).Age {
+				ped.AddKnownRel(from, to)
+			} else {
+				ped.AddKnownRel(to, from)
+			}
 		} else {
 			ped.AddUnknownRel(from, to)
 		}
-		mapped.Add(from)
-		mapped.Add(to)
 	}
 
 	for _, indv := range indvs {
-		if !mapped.Contains(indv) {
+		if mapped.Contains(indv) {
+			if g.Info(indv).Age != 0 {
+				ped.AddToRank(g.Info(indv).Age, indv)
+			}
+		} else {
 			if unmapped == nil {
 				unmapped = make([]string, 0, len(indvs)-mapped.Cardinality())
 			}
 			unmapped = append(unmapped, indv)
 		}
 	}
-
 	return ped, unmapped
 }
 
