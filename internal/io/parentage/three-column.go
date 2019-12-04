@@ -42,18 +42,8 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 			if indvSet.Contains(e.ID) {
 				log.Warnf("Parentage for ID %q duplicated, using: %+v\n", e.ID, e)
 			}
-			switch e.Sire {
-			case "0", "?":
-				// Do nothing
-			default:
-				c.sires[e.ID] = e.Sire
-			}
-			switch e.Dam {
-			case "0", "?":
-				// Do nothing
-			default:
-				c.dams[e.ID] = e.Dam
-			}
+			c.sires[e.ID] = e.Sire
+			c.dams[e.ID] = e.Dam
 			indvSet.Add(e.ID)
 		} else {
 			log.Warnf("Problem reading entry #%d: ID: %s, Sire: %s, Dam: %s\n", i+1, e.ID, e.Sire, e.Dam)
@@ -69,10 +59,16 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 
 func (c *ThreeColumnCsv) Sire(id string) (string, bool) {
 	sire, ok := c.sires[id]
+	if sire == "0" || sire == "?" {
+		return "", false
+	}
 	return sire, ok
 }
 func (c *ThreeColumnCsv) Dam(id string) (string, bool) {
 	dam, ok := c.dams[id]
+	if dam == "0" || dam == "?" {
+		return "", false
+	}
 	return dam, ok
 }
 

@@ -2,6 +2,7 @@ package graph
 
 import (
 	"fmt"
+	"math"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/rhagenson/relped/internal/io/demographics"
@@ -9,10 +10,9 @@ import (
 	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/unit/relational"
-	"gonum.org/v1/gonum/graph"
 	gonumGraph "gonum.org/v1/gonum/graph"
-	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/path"
+	"gonum.org/v1/gonum/graph/simple"
 )
 
 const lenUnknownNames = 6
@@ -23,7 +23,7 @@ var _ gonumGraph.Weighted = new(Graph)
 
 // Graph has named nodes/vertexes
 type Graph struct {
-	wug        *multi.WeightedUndirectedGraph
+	wug        *simple.WeightedUndirectedGraph
 	nameToInfo map[string]Info
 	knowns     []string
 }
@@ -37,7 +37,7 @@ type Info struct {
 
 func NewGraph(indvs []string) *Graph {
 	return &Graph{
-		wug:        multi.NewWeightedUndirectedGraph(),
+		wug:        simple.NewWeightedUndirectedGraph(math.MaxFloat64, math.MaxFloat64),
 		nameToInfo: make(map[string]Info, len(indvs)),
 		knowns:     indvs,
 	}
@@ -79,13 +79,13 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 			if degree <= maxDist {
 				if sire, ok := pars.Sire(child); ok {
 					g.AddParentage(child, "", sire)
-					line := g.NewWeightedLineNamed(sire, child, relatedness.Weight())
-					g.SetWeightedLine(line)
+					edge := g.NewWeightedEdgeNamed(sire, child, relatedness.Weight())
+					g.SetWeightedEdge(edge)
 				}
 				if dam, ok := pars.Dam(child); ok {
 					g.AddParentage(child, "", dam)
-					line := g.NewWeightedLineNamed(dam, child, relatedness.Weight())
-					g.SetWeightedLine(line)
+					edge := g.NewWeightedEdgeNamed(dam, child, relatedness.Weight())
+					g.SetWeightedEdge(edge)
 				}
 			}
 		}
@@ -159,13 +159,7 @@ func (graph *Graph) PruneToShortest(keepLoops bool) *Graph {
 			graph.RemoveNode(n.ID())
 		}
 		if !keepLoops {
-			if graph.HasEdgeBetween(n.ID(), n.ID()) {
-				lines := graph.WeightedLines(n.ID(), n.ID())
-				for lines.Next() {
-					line := lines.WeightedLine()
-					graph.RemoveLine(n.ID(), n.ID(), line.ID())
-				}
-			}
+			graph.RemoveEdge(n.ID(), n.ID())
 		}
 	}
 
@@ -191,8 +185,8 @@ func (graph *Graph) AddPath(p Path) {
 		weight := weights[i]
 		graph.AddNodeNamed(from)
 		graph.AddNodeNamed(to)
-		line := graph.NewWeightedLineNamed(from, to, weight)
-		graph.SetWeightedLine(line)
+		edge := graph.NewWeightedEdgeNamed(from, to, weight)
+		graph.SetWeightedEdge(edge)
 	}
 }
 
@@ -339,26 +333,22 @@ func (graph *Graph) WeightedEdges() gonumGraph.WeightedEdges {
 	return graph.wug.WeightedEdges()
 }
 
-func (graph *Graph) NewWeightedLine(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedLine {
-	return graph.wug.NewWeightedLine(from, to, weight)
+func (graph *Graph) NewWeightedEdge(from, to gonumGraph.Node, weight float64) gonumGraph.WeightedEdge {
+	return graph.wug.NewWeightedEdge(from, to, weight)
 }
 
-func (graph *Graph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedLine {
+func (graph *Graph) NewWeightedEdgeNamed(n1, n2 string, weight unit.Weight) gonumGraph.WeightedEdge {
 	uID, _ := graph.NameToID(n1)
 	vID, _ := graph.NameToID(n2)
-	return graph.NewWeightedLine(graph.Node(uID), graph.Node(vID), float64(weight))
+	return graph.NewWeightedEdge(graph.Node(uID), graph.Node(vID), float64(weight))
 }
 
-func (graph *Graph) SetWeightedLine(e gonumGraph.WeightedLine) {
-	graph.wug.SetWeightedLine(e)
+func (graph *Graph) SetWeightedEdge(e gonumGraph.WeightedEdge) {
+	graph.wug.SetWeightedEdge(e)
 }
 
-func (graph *Graph) RemoveLine(fid, tid, id int64) {
-	graph.wug.RemoveLine(fid, tid, id)
-}
-
-func (graph *Graph) WeightedLines(uid, vid int64) graph.WeightedLines {
-	return graph.wug.WeightedLines(uid, vid)
+func (graph *Graph) RemoveEdge(fid, tid int64) {
+	graph.wug.RemoveEdge(fid, tid)
 }
 
 func (graph *Graph) String() string {

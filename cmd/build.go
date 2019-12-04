@@ -149,17 +149,33 @@ func build() {
 	}
 
 	// Issue #30: If there is an ID in optional files, but not in required files then error
+	var errored = false
 	for _, child := range pars.Indvs() {
-		sire, _ := pars.Sire(child)
-		dam, _ := pars.Sire(child)
-		if !indvs.Contains(child, sire, dam) {
-			log.Errorf("No corresponding relatedness data for parentage entry of %s\n", child)
+		if !indvs.Contains(child) {
+			log.Errorf("No corresponding relatedness data for parentage entry: %s\n", child)
+			errored = true
+		}
+		if sire, ok := pars.Sire(child); ok {
+			if !indvs.Contains(sire) {
+				log.Errorf("Sire %s of parentage ID %s not found in relatedness file\n", sire, child)
+				errored = true
+			}
+		}
+		if dam, ok := pars.Dam(child); ok {
+			if !indvs.Contains(dam) {
+				log.Errorf("Dam %s of parentage ID %s not found in relatedness file\n", dam, child)
+				errored = true
+			}
 		}
 	}
 	for _, id := range dems.Indvs() {
 		if !indvs.Contains(id) {
 			log.Errorf("No corresponding relatedness data for demographics entry of %s\n", id)
+			errored = true
 		}
+	}
+	if errored {
+		log.Fatalf("Cancelled further processing due to previous errors\n")
 	}
 
 	// Build graph
