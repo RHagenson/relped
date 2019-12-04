@@ -25,4 +25,5 @@ func (s Sex) String() string {
 type CsvInput interface {
 	Age(string) (Age, bool)
 	Sex(string) (Sex, bool)
+	Indvs() []string
 }

@@ -16,6 +16,7 @@ var _ CsvInput = new(ThreeColumnCsv)
 type ThreeColumnCsv struct {
 	ages  map[string]Age
 	sexes map[string]Sex
+	indvs []string
 }
 
 func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
@@ -57,6 +58,10 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 		ids.Add(e.ID)
 	}
 
+	for _, indv := range ids.ToSlice() {
+		c.indvs = append(c.indvs, indv.(string))
+	}
+
 	return c
 }
 
@@ -68,4 +73,8 @@ func (c *ThreeColumnCsv) Age(id string) (Age, bool) {
 func (c *ThreeColumnCsv) Sex(id string) (Sex, bool) {
 	sex, ok := c.sexes[id]
 	return sex, ok
+}
+
+func (c *ThreeColumnCsv) Indvs() []string {
+	return c.indvs
 }

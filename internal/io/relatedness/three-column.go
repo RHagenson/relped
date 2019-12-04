@@ -17,7 +17,7 @@ var _ CsvInput = new(ThreeColumnCsv)
 type ThreeColumnCsv struct {
 	rels     map[string]map[string]unit.Relatedness
 	dists    map[string]map[string]relational.Degree
-	indvs    []string
+	indvs    mapset.Set
 	min, max float64
 }
 
@@ -37,14 +37,12 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 	c := &ThreeColumnCsv{
 		rels:  make(map[string]map[string]unit.Relatedness, len(entries)),
 		dists: make(map[string]map[string]relational.Degree, len(entries)),
-		indvs: make([]string, 0, len(entries)),
+		indvs: mapset.NewSet(),
 		min:   0,
 		max:   1,
 	}
 
-	indvSet := mapset.NewSet()
 	pairs := make(map[string][]string, len(entries))
-
 	for _, e := range entries {
 		from := e.ID1
 		to := e.ID2
@@ -89,18 +87,14 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 			}
 		}
 
-		indvSet.Add(from)
-		indvSet.Add(to)
+		c.indvs.Add(from)
+		c.indvs.Add(to)
 		if _, ok := pairs[from]; ok {
 			pairs[from] = append(pairs[from], to)
 		} else {
 			pairs[from] = make([]string, 0, len(entries))
 			pairs[from] = append(pairs[from], to)
 		}
-	}
-
-	for _, indv := range indvSet.ToSlice() {
-		c.indvs = append(c.indvs, indv.(string))
 	}
 
 	if normalize {
@@ -124,8 +118,8 @@ func (c *ThreeColumnCsv) addRelatedness(from, to string, rel float64) {
 	}
 }
 
-func (c *ThreeColumnCsv) Indvs() []string {
-	return c.indvs
+func (c *ThreeColumnCsv) Indvs() mapset.Set {
+	return c.indvs.Clone()
 }
 
 func (c *ThreeColumnCsv) Relatedness(from, to string) unit.Relatedness {

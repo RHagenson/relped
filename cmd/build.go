@@ -121,6 +121,7 @@ func build() {
 
 	// Read in CSV input
 	input = relatedness.NewThreeColumnCsv(in, opNormalize)
+	indvs := input.Indvs()
 
 	// Open demographics file
 	if fDemographics != "" {
@@ -147,15 +148,32 @@ func build() {
 		log.Fatalf("The demographics and parentage files disagree:\n%s", msg)
 	}
 
+	// Issue #30: If there is an ID in optional files, but not in required files then error
+	for _, child := range pars.Indvs() {
+		sire, _ := pars.Sire(child)
+		dam, _ := pars.Sire(child)
+		if !indvs.Contains(child, sire, dam) {
+			log.Errorf("No corresponding relatedness data for parentage entry of %s\n", child)
+		}
+	}
+	for _, id := range dems.Indvs() {
+		if !indvs.Contains(id) {
+			log.Errorf("No corresponding relatedness data for demographics entry of %s\n", id)
+		}
+	}
+
 	// Build graph
 	g := graph.NewGraphFromCsvInput(input, maxDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns
-	indvs := input.Indvs()
 	g.PruneToShortest(opKeepSelfLoops)
 
 	// Write the outout
-	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs, opRmArrows)
+	strIndvs := make([]string, 0, indvs.Cardinality())
+	for _, indv := range indvs.ToSlice() {
+		strIndvs = append(strIndvs, indv.(string))
+	}
+	ped, unmapped := pedigree.NewPedigreeFromGraph(g, strIndvs, opRmArrows)
 	if fUnmapped != "" {
 		if unmapped != nil {
 			un, err := os.Create(fUnmapped)

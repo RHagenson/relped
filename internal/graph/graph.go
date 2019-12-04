@@ -45,16 +45,20 @@ func NewGraph(indvs []string) *Graph {
 
 func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput, dems demographics.CsvInput) *Graph {
 	indvs := in.Indvs()
-	g := NewGraph(indvs)
+	strIndvs := make([]string, 0, indvs.Cardinality())
+	for _, indv := range indvs.ToSlice() {
+		strIndvs = append(strIndvs, indv.(string))
+	}
+	g := NewGraph(strIndvs)
 
 	// Add any unknowns to link knowns by relational distance
-	for i := range indvs {
-		for j := range indvs {
+	for i := range strIndvs {
+		for j := range strIndvs {
 			if i == j {
 				continue
 			} else {
-				from := indvs[i]
-				to := indvs[j]
+				from := strIndvs[i]
+				to := strIndvs[j]
 				degree := in.RelDistance(from, to)
 				relatedness := in.Relatedness(from, to)
 				if degree <= maxDist {
@@ -89,7 +93,7 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 
 	// Add demographics
 	if dems != nil {
-		for _, indv := range indvs {
+		for _, indv := range strIndvs {
 			if age, ok := dems.Age(indv); ok {
 				g.AddAge(indv, age)
 			}
