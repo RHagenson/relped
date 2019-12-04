@@ -35,6 +35,7 @@ var (
 var (
 	opNormalize   bool
 	opMaxDistance uint
+	opRmArrows    bool
 )
 
 // buildCmd represents the build command
@@ -66,6 +67,7 @@ func init() {
 	// Behavioral changes
 	buildCmd.Flags().BoolVar(&opNormalize, "normalize", false, "Normalize relatedness to [0,1]-bounded")
 	buildCmd.Flags().UintVar(&opMaxDistance, "max-distance", uint(relational.Ninth), "Max relational distance to incorporate")
+	buildCmd.Flags().BoolVar(&opRmArrows, "rm-arrows", false, "Remove arrows heads from pedigree, instead use simple lines")
 }
 
 // setup runs the CLI initialization prior to program logic
@@ -151,7 +153,7 @@ func build() {
 	g.PruneToShortest()
 
 	// Write the outout
-	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs)
+	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs, opRmArrows)
 	if fUnmapped != "" {
 		if unmapped != nil {
 			un, err := os.Create(fUnmapped)

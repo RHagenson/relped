@@ -55,8 +55,11 @@ func NewPedigree() *Pedigree {
 	}
 }
 
-func NewPedigreeFromGraph(g *graph.Graph, indvs []string) (*Pedigree, []string) {
+func NewPedigreeFromGraph(g *graph.Graph, indvs []string, undirected bool) (*Pedigree, []string) {
 	ped := NewPedigree()
+	if undirected {
+		ped.g.SetDir(false)
+	}
 	mapped := mapset.NewSet()
 	var unmapped []string
 
