@@ -33,9 +33,10 @@ var (
 
 // General use flags
 var (
-	opNormalize   bool
-	opMaxDistance uint
-	opRmArrows    bool
+	opNormalize     bool
+	opMaxDistance   uint
+	opRmArrows      bool
+	opKeepSelfLoops bool
 )
 
 // buildCmd represents the build command
@@ -68,6 +69,7 @@ func init() {
 	buildCmd.Flags().BoolVar(&opNormalize, "normalize", false, "Normalize relatedness to [0,1]-bounded")
 	buildCmd.Flags().UintVar(&opMaxDistance, "max-distance", uint(relational.Ninth), "Max relational distance to incorporate")
 	buildCmd.Flags().BoolVar(&opRmArrows, "rm-arrows", false, "Remove arrows heads from pedigree, instead use simple lines")
+	buildCmd.Flags().BoolVar(&opKeepSelfLoops, "keep-loops", false, "Keep any loops drawn between an individual and itself")
 }
 
 // setup runs the CLI initialization prior to program logic
@@ -150,7 +152,7 @@ func build() {
 
 	// Prune edges to only the shortest between two knowns
 	indvs := input.Indvs()
-	g.PruneToShortest()
+	g.PruneToShortest(opKeepSelfLoops)
 
 	// Write the outout
 	ped, unmapped := pedigree.NewPedigreeFromGraph(g, indvs, opRmArrows)

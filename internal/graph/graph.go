@@ -9,6 +9,7 @@ import (
 	"github.com/rhagenson/relped/internal/io/relatedness"
 	"github.com/rhagenson/relped/internal/unit"
 	"github.com/rhagenson/relped/internal/unit/relational"
+	"gonum.org/v1/gonum/graph"
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/path"
@@ -128,7 +129,7 @@ func (graph *Graph) AddInfo(name string, info Info) {
 	graph.nameToInfo[name] = info
 }
 
-func (graph *Graph) PruneToShortest() *Graph {
+func (graph *Graph) PruneToShortest(keepLoops bool) *Graph {
 	indvs := graph.knowns
 	connected := mapset.NewSet()
 
@@ -147,13 +148,23 @@ func (graph *Graph) PruneToShortest() *Graph {
 		}
 	}
 
-	iter := graph.Nodes()
-	for iter.Next() {
-		n := iter.Node()
+	nodes := graph.Nodes()
+	for nodes.Next() {
+		n := nodes.Node()
 		if !connected.Contains(n) {
 			graph.RemoveNode(n.ID())
 		}
+		if !keepLoops {
+			if graph.HasEdgeBetween(n.ID(), n.ID()) {
+				lines := graph.WeightedLines(n.ID(), n.ID())
+				for lines.Next() {
+					line := lines.WeightedLine()
+					graph.RemoveLine(n.ID(), n.ID(), line.ID())
+				}
+			}
+		}
 	}
+
 	return graph
 }
 
@@ -336,6 +347,14 @@ func (graph *Graph) NewWeightedLineNamed(n1, n2 string, weight unit.Weight) gonu
 
 func (graph *Graph) SetWeightedLine(e gonumGraph.WeightedLine) {
 	graph.wug.SetWeightedLine(e)
+}
+
+func (graph *Graph) RemoveLine(fid, tid, id int64) {
+	graph.wug.RemoveLine(fid, tid, id)
+}
+
+func (graph *Graph) WeightedLines(uid, vid int64) graph.WeightedLines {
+	return graph.wug.WeightedLines(uid, vid)
 }
 
 func (graph *Graph) String() string {

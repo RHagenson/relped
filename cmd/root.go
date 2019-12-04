@@ -10,7 +10,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "relped",
-	Version: "0.10.2",
+	Version: "0.10.3",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
