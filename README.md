@@ -20,9 +20,9 @@ go get -u github.com/rhagenson/relped
 
 ## Input
 
-### Relatedness
+`relped` has one required input, Relatedness, and two optional inputs, Parentage and Demographics.
 
-`relped` has one required input:
+### Relatedness
 
 Example:
 
@@ -32,9 +32,9 @@ ID1,ID2,Rel
 ...
 ```
 
-Note that your columns **must** be named `ID1`,`ID2`, and `Rel`. It is okay to have either duplicate entries of the same pair of IDs (but perhaps different `Rel`) or have entries where the IDs have been switched -- for duplicate entries, the last entry will be used.
+Note that your columns **must** be named `ID1`,`ID2`, and `Rel`. If your file has duplicate entries of the same ID pair in either order, only the last entry will be used.
 
-### Pedigree
+### Parentage
 
 Example:
 
@@ -44,7 +44,9 @@ ID,Sire,Dam
 ...
 ```
 
-Note that your columns **must** be named `ID`,`Sire`, and `Dam`. If your file contains duplicate ID entries, only the last entry will be used.
+Note that your columns **must** be named `ID`,`Sire`, and `Dam`. If your file contains duplicate ID entries, only the last entry will be used. 
+
+`Sire` and `Dam` are used the same as if you had added a `PO` called record into the relatedness input between `ID` and either `Sire` or `Dam` with the additional information of known direction such that `Sire` and `Dam` are plotted above `ID` in the pedigree.
 
 ### Demographics
 
@@ -56,15 +58,17 @@ ID,Sex,BirthYear
 ...
 ```
 
-Note that your columns **must** be named `ID`,`Sex`, and `BirthYear`. If your file contains duplicate ID entries, only the last entry will be used. `Sex` entries of either full word or first letter are recognized (e.g. `M` or `Male`) -- matching is case insensitive. `Sex` is used to change the formatting attributes in the final pedigree to distinguish males, females, and unknown sex. `BirthYear` is converted to age for the current year under the assumption that all birthdays have passed for the year (age is used to clarify the pedigree output).
+Note that your columns **must** be named `ID`,`Sex`, and `BirthYear`. If your file contains duplicate ID entries, only the last entry will be used. `Sex` entries of either full word or first letter are recognized (e.g. `M` or `Male`) -- matching is case insensitive.
+
+`Sex` is used to change the formatting attributes in the pedigree to distinguish males, females, and individuals of unknown sex. `BirthYear` is converted to age in the current year under the assumption that all birthdays have passed this year and helps to direct the pedigree so older individuals are plotted above younger individuals.
 
 ## Output
 
-`relped` produces a Graphviz-formatted file (directed or undirected, depending on input) with attributes deemed useful for building pedigrees. Unlike in a regular pedigree, all nodes at the same height in the plot may not be the same age, however all connections will be exactly the same between runs of `relped`.
+`relped` produces a Graphviz-formatted file (directed or undirected, depending on input) with attributes deemed visually appropriate for building pedigrees. Unlike in a typically pedigree, all nodes at the same level in the plot may not be the same age, however all connections will be the same between runs of `relped`.
 
 ### Producing multiple plots
 
-Due to the unavoidable randomness of how the pedigree is plotted by Graphviz, the below template can be reused to build multiple plots in a row.
+Due to the unavoidable randomness of how a pedigree is laid out by Graphviz, the below command template can be used to build multiple plots consecutively so that you may pick the most visually appropriate pedigree.
 
 ```bash
 for run in {1..10}
@@ -78,7 +82,7 @@ do
 done
 ```
 
-What the above does is loop through the number 1-10 (assigning the current number to `run`), then calls `relped` with your inputs (`<relatedness>`, `<demographics>`, `<parentage>`) and writes multiple output files that are prepended with the run number (`$run-<output>`) -- and calls Graphviz to produce a rendered image for each plot of format stated (note there is no space in `-Tsvg`).
+What the above does is loop through the numbers 1-10 (assigning the current number to `run`), then calls `relped` with your inputs (`<relatedness>`, `<demographics>`, and `<parentage>`) and writes multiple output files that are prepended with the run number (`$run-<output>`) -- then it calls Graphviz to produce rendered images in the format stated (note there is no space in `-Tsvg`).
 
 ## Contributing
 
