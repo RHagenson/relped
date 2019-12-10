@@ -13,6 +13,7 @@ import (
 	gonumGraph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
+	"gonum.org/v1/gonum/graph/topo"
 )
 
 const lenUnknownNames = 6
@@ -82,14 +83,12 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 					g.AddSire(child, sire)
 					g.AddNodeNamed(sire)
 					edge := g.NewWeightedEdgeNamed(sire, child, relatedness.Weight())
-					fmt.Println(sire, child, edge)
 					g.SetWeightedEdge(edge)
 				}
 				if dam, ok := pars.Dam(child); ok {
 					g.AddDam(child, dam)
 					g.AddNodeNamed(dam)
 					edge := g.NewWeightedEdgeNamed(dam, child, relatedness.Weight())
-					fmt.Println(dam, child, edge)
 					g.SetWeightedEdge(edge)
 				}
 			}
@@ -171,6 +170,37 @@ func (graph *Graph) PruneToShortest(keepLoops bool) *Graph {
 		}
 		if !keepLoops {
 			graph.RemoveEdge(n.ID(), n.ID())
+		}
+	}
+
+	// Remove bidirectional cycles between knowns through
+	// different unknowns
+	cycles := topo.UndirectedCyclesIn(graph)
+	var cyclesWUnknowns [][]gonumGraph.Node
+	for i, cycle := range cycles {
+		var hadUnknown bool
+		for _, node := range cycle {
+			if name, ok := graph.IDToName(node.ID()); ok {
+				if !graph.IsKnown(name) {
+					hadUnknown = true
+					break
+				}
+			}
+		}
+		if hadUnknown {
+			cyclesWUnknowns = append(cyclesWUnknowns, cycles[i])
+		}
+	}
+	for _, cycle := range cyclesWUnknowns {
+		deleting := false
+		for _, node := range cycle {
+			if name, ok := graph.IDToName(node.ID()); ok {
+				if graph.IsKnown(name) {
+					deleting = !deleting
+				} else if deleting {
+					graph.RemoveNode(node.ID())
+				}
+			}
 		}
 	}
 
