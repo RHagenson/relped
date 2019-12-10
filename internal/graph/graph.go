@@ -77,14 +77,19 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 			degree := relational.First
 			relatedness := unit.Relatedness(1.0)
 			if degree <= maxDist {
+				g.AddNodeNamed(child)
 				if sire, ok := pars.Sire(child); ok {
-					g.AddParentage(child, "", sire)
+					g.AddSire(child, sire)
+					g.AddNodeNamed(sire)
 					edge := g.NewWeightedEdgeNamed(sire, child, relatedness.Weight())
+					fmt.Println(sire, child, edge)
 					g.SetWeightedEdge(edge)
 				}
 				if dam, ok := pars.Dam(child); ok {
-					g.AddParentage(child, "", dam)
+					g.AddDam(child, dam)
+					g.AddNodeNamed(dam)
 					edge := g.NewWeightedEdgeNamed(dam, child, relatedness.Weight())
+					fmt.Println(dam, child, edge)
 					g.SetWeightedEdge(edge)
 				}
 			}
@@ -116,16 +121,22 @@ func (graph *Graph) AddSex(name string, sex demographics.Sex) {
 	info.Sex = sex
 	graph.nameToInfo[name] = info
 }
-func (graph *Graph) AddParentage(name, dam, sire string) {
+func (graph *Graph) AddSire(name, sire string) {
 	info := graph.nameToInfo[name]
-	if dam != "" {
-		info.Dam = dam
-	}
 	if sire != "" {
 		info.Sire = sire
 	}
 	graph.nameToInfo[name] = info
 }
+
+func (graph *Graph) AddDam(name, dam string) {
+	info := graph.nameToInfo[name]
+	if dam != "" {
+		info.Dam = dam
+	}
+	graph.nameToInfo[name] = info
+}
+
 func (graph *Graph) Info(name string) Info {
 	return graph.nameToInfo[name]
 }
