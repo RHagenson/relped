@@ -44,7 +44,7 @@ func NewGraph(indvs []string) *Graph {
 	}
 }
 
-func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pars parentage.CsvInput, dems demographics.CsvInput) *Graph {
+func NewGraphFromCsvInput(in relatedness.CsvInput, minDist relational.Degree, pars parentage.CsvInput, dems demographics.CsvInput) *Graph {
 	indvs := in.Indvs()
 	strIndvs := make([]string, 0, indvs.Cardinality())
 	for _, indv := range indvs.ToSlice() {
@@ -62,7 +62,7 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 				to := strIndvs[j]
 				degree := in.RelDistance(from, to)
 				relatedness := in.Relatedness(from, to)
-				if degree <= maxDist {
+				if minDist <= degree {
 					if path, err := NewRelationalWeightPath(from, to, degree, relatedness.Weight()); err == nil {
 						g.AddPath(path)
 					}
@@ -77,7 +77,7 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, maxDist relational.Degree, pa
 		for _, child := range children {
 			degree := relational.First
 			relatedness := unit.Relatedness(1.0)
-			if degree <= maxDist {
+			if minDist <= degree {
 				g.AddNodeNamed(child)
 				if sire, ok := pars.Sire(child); ok {
 					g.AddSire(child, sire)

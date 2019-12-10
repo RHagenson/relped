@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/rhagenson/relped/internal/graph"
@@ -16,7 +18,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var maxDist = relational.Ninth
+var minDist = relational.Ninth
 
 // Required flags
 var (
@@ -33,10 +35,10 @@ var (
 
 // General use flags
 var (
-	opNormalize     bool
-	opMaxDistance   uint
-	opRmArrows      bool
-	opKeepSelfLoops bool
+	opNormalize      bool
+	opMinRelatedness string
+	opRmArrows       bool
+	opKeepSelfLoops  bool
 )
 
 // buildCmd represents the build command
@@ -67,24 +69,26 @@ func init() {
 
 	// Behavioral changes
 	buildCmd.Flags().BoolVar(&opNormalize, "normalize", false, "Normalize relatedness to [0,1]-bounded")
-	buildCmd.Flags().UintVar(&opMaxDistance, "max-distance", uint(relational.Ninth), "Max relational distance to incorporate")
+	buildCmd.Flags().StringVar(&opMinRelatedness, "min-relatedness", "U", "Minimum relational distance to incorporate")
 	buildCmd.Flags().BoolVar(&opRmArrows, "rm-arrows", false, "Remove arrows heads from pedigree, instead use simple lines")
 	buildCmd.Flags().BoolVar(&opKeepSelfLoops, "keep-loops", false, "Keep any loops drawn between an individual and itself")
 }
 
 // setup runs the CLI initialization prior to program logic
 func setup() {
-	// Set maxDist
-	maxDist = relational.Degree(opMaxDistance)
+	// Set minDist
+	if val, err := strconv.ParseFloat(opMinRelatedness, 64); err == nil {
+		minDist = util.RelToLevel(val)
+	} else {
+		minDist = util.CategoryToDist(opMinRelatedness)
+	}
+	fmt.Println(minDist)
 
 	// Information states
 	// None
 
 	// Warning states
-	switch {
-	case uint(maxDist) < opMaxDistance:
-		log.Warnf("Estimating relational distance beyond %d is ill-advised.", maxDist)
-	}
+	// None
 
 	// Failure states
 	switch {
@@ -183,7 +187,7 @@ func build() {
 	}
 
 	// Build graph
-	g := graph.NewGraphFromCsvInput(input, maxDist, pars, dems)
+	g := graph.NewGraphFromCsvInput(input, minDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns
 	g.PruneToShortest(opKeepSelfLoops)
