@@ -32,7 +32,7 @@ ID1,ID2,Rel
 ...
 ```
 
-Note that your columns **must** be named `ID1`,`ID2`, and `Rel`. If your file has duplicate entries of the same ID pair in either order, only the last entry will be used.
+Note that your columns **must** be named `ID1`,`ID2`, and `Rel`. If your file has duplicate entries of the same ID pair in either order, only the last entry will be used. `Rel` entries may be either a decimal value or one of: `PO`, `FS`, `HS`, `U`, indicating known parent-offspring, full-sibling, half-sibling, or unrelated pair, respectively.
 
 ### Parentage
 
