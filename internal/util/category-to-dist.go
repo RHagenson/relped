@@ -9,11 +9,11 @@ import (
 func CategoryToDist(cat string) relational.Degree {
 	switch cat {
 	case "PO":
-		return relational.First
+		return relational.First // PO should have no nodes between them: direct link
 	case "FS":
-		return relational.Second
+		return relational.Second // FS should have have paths of one node between them: both shared parents
 	case "HS":
-		return relational.Third
+		return relational.Second // HS should only have one node between them: the shared parent
 	case "U":
 		return relational.Unrelated
 	default:

@@ -162,7 +162,7 @@ func (p *Pedigree) String() string {
 		if len(indvs) > 1 {
 			ranks.WriteString("\t{rank=same; ")
 			ranks.WriteString(strings.Join(indvs, ", "))
-			ranks.WriteString(fmt.Sprintf(" }; // Age: %d \n", age))
+			ranks.WriteString(fmt.Sprintf(" }; // Age: %d\n", age))
 		}
 	}
 	out = out[:len(out)-2] + ranks.String() + "}\n"
