@@ -22,6 +22,7 @@ var (
 		"fontname": "Sans",
 		"shape":    "diamond",
 		"style":    "dashed",
+		"label":    "\"\"",
 	}
 	knownRelAttrs = map[string]string{
 		"style": "bold",
