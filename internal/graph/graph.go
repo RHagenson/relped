@@ -143,7 +143,7 @@ func (graph *Graph) AddInfo(name string, info Info) {
 	graph.nameToInfo[name] = info
 }
 
-func (graph *Graph) PruneToShortest(keepLoops bool) *Graph {
+func (graph *Graph) Prune(keepLoops bool) *Graph {
 	indvs := graph.knowns
 	connected := mapset.NewSet()
 
@@ -199,6 +199,40 @@ func (graph *Graph) PruneToShortest(keepLoops bool) *Graph {
 					deleting = !deleting
 				} else if deleting {
 					graph.RemoveNode(node.ID())
+				}
+			}
+		}
+	}
+
+	// Remove bowtie pattern where offspring share both parents,
+	// but relatedness otherwise states Rel~=0.5 causing direct link
+	//
+	//     Dam->O1
+	//	   Sire->O1
+	//     Dam->O2
+	//     Sire-O2
+	//     O1<->O2  // Should be disconnected here
+	var o1, dam1, sire1 string
+	var o2, dam2, sire2 string
+	for i := 0; i < len(indvs); i++ {
+		o1 = indvs[i]
+		dam1 = graph.Info(o1).Dam
+		sire1 = graph.Info(o1).Sire
+
+		if dam1 != "" && sire1 != "" {
+			for j := i + 1; j < len(indvs); j++ {
+				o2 = indvs[j]
+				dam2 = graph.Info(o2).Dam
+				sire2 = graph.Info(o2).Sire
+
+				if dam2 != "" && sire2 != "" {
+					if dam1 == dam2 && sire1 == sire2 {
+						if o1ID, ok := graph.NameToID(o1); ok {
+							if o2ID, ok := graph.NameToID(o2); ok {
+								graph.RemoveEdge(o1ID, o2ID)
+							}
+						}
+					}
 				}
 			}
 		}

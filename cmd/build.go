@@ -190,7 +190,7 @@ func build() {
 	g := graph.NewGraphFromCsvInput(input, minDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns
-	g.PruneToShortest(opKeepSelfLoops)
+	g.Prune(opKeepSelfLoops)
 
 	// Write the outout
 	strIndvs := make([]string, 0, indvs.Cardinality())
