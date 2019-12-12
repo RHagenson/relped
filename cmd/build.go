@@ -38,7 +38,6 @@ var (
 	opNormalize      bool
 	opMinRelatedness string
 	opRmArrows       bool
-	opKeepSelfLoops  bool
 )
 
 // buildCmd represents the build command
@@ -71,7 +70,6 @@ func init() {
 	buildCmd.Flags().BoolVar(&opNormalize, "normalize", false, "Normalize relatedness to [0,1]-bounded")
 	buildCmd.Flags().StringVar(&opMinRelatedness, "min-relatedness", "U", "Minimum relational distance to incorporate")
 	buildCmd.Flags().BoolVar(&opRmArrows, "rm-arrows", false, "Remove arrows heads from pedigree, instead use simple lines")
-	buildCmd.Flags().BoolVar(&opKeepSelfLoops, "keep-loops", false, "Keep any loops drawn between an individual and itself")
 }
 
 // setup runs the CLI initialization prior to program logic
@@ -190,7 +188,7 @@ func build() {
 	g := graph.NewGraphFromCsvInput(input, minDist, pars, dems)
 
 	// Prune edges to only the shortest between two knowns
-	g.Prune(opKeepSelfLoops)
+	g.Prune()
 
 	// Write the outout
 	strIndvs := make([]string, 0, indvs.Cardinality())

@@ -141,7 +141,7 @@ func (graph *Graph) AddInfo(name string, info Info) {
 	graph.nameToInfo[name] = info
 }
 
-func (graph *Graph) Prune(keepLoops bool) *Graph {
+func (graph *Graph) Prune() *Graph {
 	indvs := graph.knowns
 	connected := mapset.NewSet()
 
@@ -165,9 +165,6 @@ func (graph *Graph) Prune(keepLoops bool) *Graph {
 		n := nodes.Node()
 		if !connected.Contains(n) {
 			graph.RemoveNode(n.ID())
-		}
-		if !keepLoops {
-			graph.RemoveEdge(n.ID(), n.ID())
 		}
 	}
 
