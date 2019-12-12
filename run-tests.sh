@@ -46,6 +46,11 @@ relped build \
     --output=/tmp/relped-out.txt \
     --parentage=example-data/parentage.csv \
     --demographics=example-data/demographics.csv \
-&& grep -q "digraph " /tmp/relped-out.txt
+&& (grep -q "digraph " /tmp/relped-out.txt || rm /tmp/relped-out.txt)
+
+# Input file extension does not matter, using <(...) causes no extension as it is a pipe
+relped build \
+    --relatedness=<(cat example-data/relatedness-nums-and-codes.csv) \
+    --output=/dev/null
 
 exit "$result"
