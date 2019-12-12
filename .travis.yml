@@ -1,0 +1,9 @@
+language: go
+sudo: false
+go:
+    - 1.x
+    - master
+env: GO111MODULE=on
+script:
+    - go get -t -v ./...
+    - go test -v -race ./...
