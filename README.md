@@ -1,6 +1,7 @@
 # `relped`
 
 [![DOI](https://zenodo.org/badge/217557856.svg)](https://zenodo.org/badge/latestdoi/217557856)
+[![Build Status](https://travis-ci.com/rhagenson/relped.svg?branch=master)](https://travis-ci.com/rhagenson/relped)
 
 `relped` builds a pedigree from relatedness.
 
