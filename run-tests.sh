@@ -29,6 +29,23 @@ relped build \
     --relatedness=example-data/relatedness-nums-and-codes.csv \
     --output=/dev/null \
     --parentage=example-data/parentage.csv \
-    --demographics=example-data/demographics.csv 
+    --demographics=example-data/demographics.csv
+
+# --rm-arrows creates undirected graph rather than directed digraph
+relped build \
+    --relatedness=example-data/relatedness-nums-and-codes.csv \
+    --output=/tmp/relped-out.txt \
+    --parentage=example-data/parentage.csv \
+    --demographics=example-data/demographics.csv \
+    --rm-arrows \
+&& grep -q "graph " /tmp/relped-out.txt
+
+# Directed equivalent without --rm-arrows
+relped build \
+    --relatedness=example-data/relatedness-nums-and-codes.csv \
+    --output=/tmp/relped-out.txt \
+    --parentage=example-data/parentage.csv \
+    --demographics=example-data/demographics.csv \
+&& grep -q "digraph " /tmp/relped-out.txt
 
 exit "$result"
