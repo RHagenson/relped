@@ -82,14 +82,12 @@ func NewGraphFromCsvInput(in relatedness.CsvInput, minDist relational.Degree, pa
 				if sire, ok := pars.Sire(child); ok {
 					g.AddSire(child, sire)
 					g.AddNodeNamed(sire)
-					edge := g.NewWeightedEdgeNamed(sire, child, relatedness.Weight())
-					g.SetWeightedEdge(edge)
+					g.AddPath(NewEqualWeightPath([]string{sire, child}, relatedness.Weight()))
 				}
 				if dam, ok := pars.Dam(child); ok {
 					g.AddDam(child, dam)
 					g.AddNodeNamed(dam)
-					edge := g.NewWeightedEdgeNamed(dam, child, relatedness.Weight())
-					g.SetWeightedEdge(edge)
+					g.AddPath(NewEqualWeightPath([]string{dam, child}, relatedness.Weight()))
 				}
 			}
 		}
@@ -257,11 +255,13 @@ func (graph *Graph) AddPath(p Path) {
 	for i := range weights {
 		from := names[i]
 		to := names[i+1]
-		weight := weights[i]
-		graph.AddNodeNamed(from)
-		graph.AddNodeNamed(to)
-		edge := graph.NewWeightedEdgeNamed(from, to, weight)
-		graph.SetWeightedEdge(edge)
+		if from != to { // No self-loops
+			weight := weights[i]
+			graph.AddNodeNamed(from)
+			graph.AddNodeNamed(to)
+			edge := graph.NewWeightedEdgeNamed(from, to, weight)
+			graph.SetWeightedEdge(edge)
+		}
 	}
 }
 
