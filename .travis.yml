@@ -11,10 +11,7 @@ cache:
   directories:
     - $HOME/.cache/go-build
     - $GOPATH/pkg/mod
-script:
+before_script:
     - go get -t -v ./...
-    - go test -v -race ./...
     - go build 
-    - ./relped build --relatedness=example-data/relatedness-nums-and-codes.csv --output=/dev/null
-    - ./relped build --relatedness=example-data/relatedness-nums-and-codes.csv --output=/dev/null --parentage=example-data/parentage.csv
-    - ./relped build --relatedness=example-data/relatedness-nums-and-codes.csv --output=/dev/null --parentage=example-data/parentage.csv --demographics=example-data/demographics.csv
+script: ./run-tests.sh
