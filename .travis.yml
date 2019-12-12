@@ -4,6 +4,13 @@ go:
     - 1.x
     - master
 env: GO111MODULE=on
+branches:
+  only:
+    - master
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $HOME/gopath/pkg/mod
 script:
     - go get -t -v ./...
     - go test -v -race ./...
