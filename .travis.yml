@@ -10,7 +10,7 @@ branches:
 cache:
   directories:
     - $HOME/.cache/go-build
-    - $HOME/gopath/pkg/mod
+    - $GOPATH/pkg/mod
 script:
     - go get -t -v ./...
     - go test -v -race ./...
