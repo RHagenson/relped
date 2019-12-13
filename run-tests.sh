@@ -5,7 +5,7 @@ result=0
 trap 'result=1' ERR
 
 # Go tests
-go test -v -race ./...
+go test -v -cover -race ./...
 
 # Minimum running case
 relped build \
