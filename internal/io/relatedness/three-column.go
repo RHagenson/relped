@@ -38,8 +38,6 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 		rels:  make(map[string]map[string]unit.Relatedness, len(entries)),
 		dists: make(map[string]map[string]relational.Degree, len(entries)),
 		indvs: mapset.NewSet(),
-		min:   0,
-		max:   1,
 	}
 
 	pairs := make(map[string][]string, len(entries))
@@ -98,11 +96,7 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 	}
 
 	if normalize {
-		for from, m := range c.rels {
-			for to, rel := range m {
-				c.rels[from][to] = unit.Relatedness((float64(rel) - c.min) / (c.max - c.min))
-			}
-		}
+		c.rels = util.NormalizeRelatedness(c.rels)
 	}
 
 	return c
@@ -110,12 +104,6 @@ func NewThreeColumnCsv(f *os.File, normalize bool) *ThreeColumnCsv {
 
 func (c *ThreeColumnCsv) addRelatedness(from, to string, rel float64) {
 	c.rels[from][to] = unit.Relatedness(rel)
-	if rel < c.min {
-		c.min = rel
-	}
-	if c.max < rel {
-		c.max = rel
-	}
 }
 
 func (c *ThreeColumnCsv) Indvs() mapset.Set {
