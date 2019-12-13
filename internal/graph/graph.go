@@ -141,7 +141,7 @@ func (graph *Graph) AddInfo(name string, info Info) {
 	graph.nameToInfo[name] = info
 }
 
-func (graph *Graph) Prune() *Graph {
+func (graph *Graph) Prune() {
 	indvs := graph.knowns
 	connected := mapset.NewSet()
 
@@ -233,7 +233,7 @@ func (graph *Graph) Prune() *Graph {
 		}
 	}
 
-	return graph
+	return
 }
 
 func (graph *Graph) IsKnown(name string) bool {

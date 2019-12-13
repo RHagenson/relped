@@ -54,7 +54,7 @@ func NewThreeColumnCsv(f *os.File) *ThreeColumnCsv {
 			log.Warnf("Did not understand Sex in entry: %v; setting Sex to Unknown\n", e)
 			c.sexes[e.ID] = Unknown
 		}
-		c.ages[e.ID] = Age(y - e.BirthYear)
+		c.ages[e.ID] = CalculateAge(y, e.BirthYear)
 		ids.Add(e.ID)
 	}
 
