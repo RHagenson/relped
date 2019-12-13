@@ -169,4 +169,25 @@ func TestPedigree(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("ranks are added properly", func(t *testing.T) {
+		p := pedigree.NewPedigree()
+		p.AddUnknownIndv("U1")
+		p.AddUnknownIndv("U2")
+		p.AddToRank(demographics.Age(10), "U1")
+		p.AddToRank(demographics.Age(10), "U2")
+		if pattern, err := regexp.Compile("{rank=same.*"); err == nil {
+			line := pattern.FindString(p.String())
+			if line == "" {
+				t.Errorf("regex failed to match")
+			} else {
+				str := "{rank=same; U1, U2 }; // Age: 10"
+				if !strings.Contains(line, str) {
+					t.Errorf("expected %s in line: %s", str, line)
+				}
+			}
+		} else {
+			t.Errorf("regex to find added ranks failed to compile")
+		}
+	})
 }
