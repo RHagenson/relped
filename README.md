@@ -67,6 +67,8 @@ Note that your columns **must** be named `ID`,`Sex`, and `BirthYear`. If your fi
 
 `relped` produces a Graphviz-formatted file (directed or undirected, depending on input) with attributes deemed visually appropriate for building pedigrees. Unlike in a typically pedigree, all nodes at the same level in the plot may not be the same age, however all connections will be the same between runs of `relped`.
 
+![Example](./imgs/relped.dot.png)
+
 ### Producing multiple plots
 
 Due to the unavoidable randomness of how a pedigree is laid out by Graphviz, the below command template can be used to build multiple plots consecutively so that you may pick the most visually appropriate pedigree.
