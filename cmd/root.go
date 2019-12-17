@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/rhagenson/relped/internal/version"
 	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "relped",
-	Version: "0.15.2",
+	Version: version.GitTag,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
