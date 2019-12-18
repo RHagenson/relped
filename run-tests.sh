@@ -61,4 +61,18 @@ relped build --relatedness example-data/relatedness-nums-and-codes.csv 2>&1 \
 relped build --output=/dev/null 2>&1 \
 | grep -q 'Error: required flag(s) "relatedness" not set'
 
+# Check for fatal exit on optional input have ID not in required input
+relped build \
+    --relatedness=<( head example-data/relatedness-nums-and-codes.csv ) \
+    --output=/dev/null \
+    --parentage=example-data/parentage.csv 2>&1 \
+| grep -q 'Cancelled further processing due to previous errors'
+
+# Check for fatal exit on optional input have ID not in required input
+relped build \
+    --relatedness=<( head example-data/relatedness-nums-and-codes.csv ) \
+    --output=/dev/null \
+    --demographics=example-data/demographics.csv 2>&1 \
+| grep -q 'Cancelled further processing due to previous errors'
+
 exit "$result"
