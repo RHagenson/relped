@@ -75,4 +75,11 @@ relped build \
     --demographics=example-data/demographics.csv 2>&1 \
 | grep -q 'Cancelled further processing due to previous errors'
 
+# --unmapped produces a list of unmapped IDs
+relped build \
+    --relatedness=<( head -n 1 example-data/relatedness-nums-and-codes.csv && tail -n +1 example-data/relatedness-nums-and-codes.csv | shuf -n 20 ) \
+    --output=/dev/null \
+    --unmapped=/tmp/relped-unmapped.txt \
+&& [[ -f /tmp/relped-unmapped.txt && -s /tmp/relped-unmapped.txt ]]  # Checks that file exists (-f) and has a size (-s)
+
 exit "$result"
