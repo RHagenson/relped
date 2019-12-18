@@ -47,7 +47,7 @@ ID,Sire,Dam
 
 Note that your columns **must** be named `ID`,`Sire`, and `Dam`. If your file contains duplicate ID entries, only the last entry will be used. 
 
-`Sire` and `Dam` are used the same as if you had added a `PO` called record into the relatedness input between `ID` and either `Sire` or `Dam` with the additional information of known direction such that `Sire` and `Dam` are plotted above `ID` in the pedigree.
+`Sire` and `Dam` are used the same as if you had added a `PO` called record into the relatedness input between `ID` and either `Sire` or `Dam` with the additional information of known direction such that `Sire` and `Dam` are plotted above `ID` in the pedigree. Unknown `Sire` and/or `Dam` may be denoted via a `0` or `?` entry.
 
 ### Demographics
 
