@@ -53,4 +53,12 @@ relped build \
     --relatedness=<(cat example-data/relatedness-nums-and-codes.csv) \
     --output=/dev/null
 
+# Check for graceful exit on absent --output
+relped build --relatedness example-data/relatedness-nums-and-codes.csv 2>&1 \
+| grep -q 'Error: required flag(s) "output" not set'
+
+# Check for graceful exit on absent --relatedness
+relped build --output=/dev/null 2>&1 \
+| grep -q 'Error: required flag(s) "relatedness" not set'
+
 exit "$result"
