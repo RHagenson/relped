@@ -1,5 +1,6 @@
 # `relped`
 
+[![status](https://joss.theoj.org/papers/b5c476c1ce08df5db16410accd7e09de/status.svg)](https://joss.theoj.org/papers/b5c476c1ce08df5db16410accd7e09de)
 [![DOI](https://zenodo.org/badge/217557856.svg)](https://zenodo.org/badge/latestdoi/217557856)
 [![Build Status](https://travis-ci.com/rhagenson/relped.svg?branch=master)](https://travis-ci.com/rhagenson/relped)
 
