@@ -4,7 +4,7 @@
 [![DOI](https://zenodo.org/badge/217557856.svg)](https://zenodo.org/badge/latestdoi/217557856)
 [![Build Status](https://travis-ci.com/rhagenson/relped.svg?branch=master)](https://travis-ci.com/rhagenson/relped)
 
-`relped` builds a pedigree from relatedness.
+Relatedness, as a measure of shared genes, ranges from 0.0 (no relation) to 1.0 (exact clones). By considering all pairwise relatedness among a set of individuals an approximate pedigree, or family tree, can be built. In the past, such a pedigree chart was built manually by a compiling expert biologist. `relped` automates building such a pedigree, while allowing the expert biologist to overrule automated inference based on known relationships, parentage, and/or demographics.
 
 ## Installation
 
