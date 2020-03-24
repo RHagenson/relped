@@ -70,9 +70,26 @@ Note that your columns **must** be named `ID`,`Sex`, and `BirthYear`. If your fi
 
 ![Example](./imgs/relped.dot.png)
 
+## Usage
+
+### Producting one plot
+
+A single run of `relped` and Graphviz to produce a pedigree can be done as follows:
+
+```bash
+relped build \
+    --relatedness <relatedness> \
+    --demographics <demographics> \
+    --parentage <parentage> \
+    --output <output> \
+&& dot -Tsvg -O <output>
+```
+
+**Important:** How Graphviz plots a pedigree based on a single output from `relped` is not always visually appropriate for presenting your pedigree nework, therefore we recommend building multiple plots at once.
+
 ### Producing multiple plots
 
-Due to the unavoidable randomness of how a pedigree is laid out by Graphviz, the below command template can be used to build multiple plots consecutively so that you may pick the most visually appropriate pedigree.
+The below command template can be used to build multiple plots consecutively so that you may pick the most visually appropriate pedigree -- only the layout should change between runs, not the connections therefore all pedigrees should be equal short of visual fitness.
 
 ```bash
 for run in {1..10}
