@@ -107,7 +107,7 @@ What the above does is loop through the numbers 1-10 (assigning the current numb
 
 ## Contributing
 
-If you find a bug, have a feature request, or otherwise would like to contact the author concerning use of `relped`, please open an [issue](https://github.com/rhagenson/relped/issues).
+We invite all contributors, please refer to [CONTRIBUTING](./CONTRIBUTING.md) for further details.
 
 ## License
 
